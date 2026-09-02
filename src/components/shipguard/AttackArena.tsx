@@ -17,7 +17,7 @@ import {
 const attackVectors: { id: AttackVector; label: string; icon: typeof Flame; desc: string }[] = [
   { id: "boundary", label: "Boundary", icon: Flame, desc: "₹0 edge case" },
   { id: "replay", label: "Replay", icon: GitBranch, desc: "State mutation replay" },
-  { id: "toctou", label: "TOCTOU Concurrency", icon: Swords, desc: "Race condition" },
+  { id: "toctou", label: "TOCTOU", icon: Swords, desc: "Race condition" },
 ];
 
 const timelineStepsA = [
@@ -83,13 +83,13 @@ function ConcurrencyTimeline({ active }: { active: boolean }) {
 
   return (
     <div className="space-y-3">
-      <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+      <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
         Concurrency Interleaving Timeline
       </h4>
 
       <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 relative">
         {/* Thread A */}
-        <div className="text-[10px] font-bold text-cyan-600 font-mono pt-0.5">Thread A</div>
+        <div className="text-[10px] font-bold text-cyan-400 font-mono pt-0.5">Thread A</div>
         <div className="flex flex-col gap-1">
           {timelineStepsA.map((step, i) => (
             <motion.div
@@ -100,14 +100,14 @@ function ConcurrencyTimeline({ active }: { active: boolean }) {
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-mono transition-all duration-300",
                 i <= stepA
-                  ? "bg-cyan-50 text-cyan-700 border border-cyan-200"
-                  : "bg-slate-50 text-slate-300 border border-transparent"
+                  ? "bg-cyan-500/10 text-cyan-300 border border-cyan-500/20"
+                  : "bg-white/[0.02] text-zinc-600 border border-transparent"
               )}
             >
               <div
                 className={cn(
                   "h-1.5 w-1.5 rounded-full flex-shrink-0",
-                  i <= stepA ? "bg-cyan-500" : "bg-slate-200"
+                  i <= stepA ? "bg-cyan-400" : "bg-zinc-700"
                 )}
               />
               {step}
@@ -116,7 +116,7 @@ function ConcurrencyTimeline({ active }: { active: boolean }) {
         </div>
 
         {/* Thread B */}
-        <div className="text-[10px] font-bold text-violet-600 font-mono pt-0.5">Thread B</div>
+        <div className="text-[10px] font-bold text-violet-400 font-mono pt-0.5">Thread B</div>
         <div className="flex flex-col gap-1">
           {timelineStepsB.map((step, i) => (
             <motion.div
@@ -127,14 +127,14 @@ function ConcurrencyTimeline({ active }: { active: boolean }) {
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-mono transition-all duration-300",
                 i <= stepB
-                  ? "bg-violet-50 text-violet-700 border border-violet-200"
-                  : "bg-slate-50 text-slate-300 border border-transparent"
+                  ? "bg-violet-500/10 text-violet-300 border border-violet-500/20"
+                  : "bg-white/[0.02] text-zinc-600 border border-transparent"
               )}
             >
               <div
                 className={cn(
                   "h-1.5 w-1.5 rounded-full flex-shrink-0",
-                  i <= stepB ? "bg-violet-500" : "bg-slate-200"
+                  i <= stepB ? "bg-violet-400" : "bg-zinc-700"
                 )}
               />
               {step}
@@ -152,15 +152,15 @@ function ConcurrencyTimeline({ active }: { active: boolean }) {
             exit={{ opacity: 0 }}
             className="relative"
           >
-            <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-red-100 via-red-50 to-red-100 border border-red-300 animate-border-flash-red" />
-            <div className="relative flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2.5">
-              <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 animate-pulse" />
+            <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-red-500/[0.08] via-red-500/[0.03] to-red-500/[0.08] border border-red-500/30 animate-border-flash-red" />
+            <div className="relative flex items-center gap-2 rounded-lg bg-red-500/[0.06] border border-red-500/20 px-3 py-2.5">
+              <AlertTriangle className="h-4 w-4 text-red-400 flex-shrink-0 animate-pulse" />
               <div>
-                <p className="text-[10px] font-bold text-red-600 uppercase tracking-wider">
-                  CRITICAL RACE CONDITION
+                <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider">
+                  Critical Race Condition
                 </p>
-                <p className="text-[10px] text-red-500 font-mono">
-                  Double-Spend Window Exploited — Both threads passed balance check before either committed
+                <p className="text-[10px] text-red-400/70 font-mono">
+                  Double-spend window exploited — both threads passed the balance check before either committed
                 </p>
               </div>
             </div>
@@ -174,28 +174,28 @@ function ConcurrencyTimeline({ active }: { active: boolean }) {
 function StateDifferential({ breached }: { breached: boolean }) {
   return (
     <div className="space-y-2">
-      <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+      <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
         State Differential Inspector
       </h4>
       <div className="grid grid-cols-2 gap-2">
         {/* Pre-State */}
-        <div className="rounded-lg bg-white/60 border border-slate-100 p-2.5">
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+        <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-2.5">
+          <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 mb-1.5">
             Pre-State
           </p>
           <div className="space-y-1">
             <div className="flex justify-between text-[11px]">
-              <span className="text-slate-500">Sender</span>
-              <span className="font-mono font-semibold text-slate-700">₹1,000</span>
+              <span className="text-zinc-500">Sender</span>
+              <span className="font-mono font-semibold text-zinc-300">₹1,000</span>
             </div>
             <div className="flex justify-between text-[11px]">
-              <span className="text-slate-500">Receiver</span>
-              <span className="font-mono font-semibold text-slate-700">₹0</span>
+              <span className="text-zinc-500">Receiver</span>
+              <span className="font-mono font-semibold text-zinc-300">₹0</span>
             </div>
-            <div className="border-t border-slate-100 pt-1 mt-1">
+            <div className="border-t border-white/[0.06] pt-1 mt-1">
               <div className="flex justify-between text-[11px]">
-                <span className="text-slate-500 font-semibold">Total</span>
-                <span className="font-mono font-bold text-slate-800">₹1,000</span>
+                <span className="text-zinc-400 font-semibold">Total</span>
+                <span className="font-mono font-bold text-zinc-200">₹1,000</span>
               </div>
             </div>
           </div>
@@ -205,29 +205,29 @@ function StateDifferential({ breached }: { breached: boolean }) {
           className={cn(
             "rounded-lg border p-2.5 transition-all duration-500",
             breached
-              ? "bg-red-50/80 border-red-200"
-              : "bg-white/60 border-slate-100"
+              ? "bg-red-500/[0.06] border-red-500/20"
+              : "bg-white/[0.03] border-white/[0.06]"
           )}
         >
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+          <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 mb-1.5">
             Post-State
           </p>
           <div className="space-y-1">
             <div className="flex justify-between text-[11px]">
-              <span className="text-slate-500">Sender</span>
-              <span className="font-mono font-semibold text-slate-700">₹0</span>
+              <span className="text-zinc-500">Sender</span>
+              <span className="font-mono font-semibold text-zinc-300">₹0</span>
             </div>
             <div className="flex justify-between text-[11px]">
-              <span className="text-slate-500">Receiver</span>
-              <span className="font-mono font-semibold text-slate-700">₹2,000</span>
+              <span className="text-zinc-500">Receiver</span>
+              <span className="font-mono font-semibold text-zinc-300">₹2,000</span>
             </div>
-            <div className="border-t border-slate-100 pt-1 mt-1">
+            <div className="border-t border-white/[0.06] pt-1 mt-1">
               <div className="flex justify-between text-[11px]">
-                <span className="text-slate-500 font-semibold">Total</span>
+                <span className="text-zinc-400 font-semibold">Total</span>
                 <span
                   className={cn(
                     "font-mono font-bold",
-                    breached ? "text-red-600" : "text-slate-800"
+                    breached ? "text-red-400" : "text-zinc-200"
                   )}
                 >
                   ₹2,000
@@ -244,14 +244,14 @@ function StateDifferential({ breached }: { breached: boolean }) {
           <motion.div
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2"
+            className="flex items-center gap-2 rounded-lg bg-red-500/[0.06] border border-red-500/20 px-3 py-2"
           >
             <span className="text-sm">🚨</span>
             <div>
-              <p className="text-[10px] font-bold text-red-600 uppercase">
+              <p className="text-[10px] font-bold text-red-400 uppercase">
                 +₹1,000 Phantom Currency Generated
               </p>
-              <p className="text-[9px] text-red-400 font-mono">INV-002 BREACH — Asset conservation violated</p>
+              <p className="text-[9px] text-red-400/60 font-mono">INV-002 breach — asset conservation violated</p>
             </div>
           </motion.div>
         )}
@@ -279,8 +279,8 @@ export function AttackArena({
       {/* Attack Suite Trigger */}
       <div className="glass rounded-xl p-4">
         <div className="flex items-center gap-2 mb-3">
-          <Swords className="h-4 w-4 text-amber-600" />
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">
+          <Swords className="h-4 w-4 text-amber-400" />
+          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300">
             Adversarial Attack Suite
           </h3>
         </div>
@@ -295,14 +295,14 @@ export function AttackArena({
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-lg border p-2.5 text-center transition-all duration-200",
                   selectedVector === v.id
-                    ? "bg-amber-50 border-amber-300 text-amber-700 shadow-sm shadow-amber-100"
-                    : "bg-white/40 border-slate-100 text-slate-400 hover:border-slate-200 hover:text-slate-500",
-                  !canLaunch && "opacity-50 cursor-not-allowed"
+                    ? "bg-amber-500/10 border-amber-500/30 text-amber-300 shadow-sm shadow-amber-500/10"
+                    : "bg-white/[0.02] border-white/[0.06] text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300",
+                  !canLaunch && "opacity-40 cursor-not-allowed"
                 )}
               >
                 <Icon className="h-4 w-4" />
                 <span className="text-[10px] font-bold">{v.label}</span>
-                <span className="text-[9px] text-slate-400">{v.desc}</span>
+                <span className="text-[9px] text-zinc-600">{v.desc}</span>
               </button>
             );
           })}
@@ -311,7 +311,7 @@ export function AttackArena({
           onClick={onLaunch}
           disabled={!canLaunch}
           size="sm"
-          className="w-full gap-1.5 text-[11px] font-semibold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md shadow-amber-200 transition-all disabled:opacity-50"
+          className="w-full gap-1.5 text-[11px] font-semibold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-zinc-950 shadow-md shadow-amber-500/20 transition-all disabled:opacity-40 disabled:shadow-none"
         >
           <Flame className="h-3.5 w-3.5" />
           Launch Adversarial Suite
@@ -355,17 +355,17 @@ export function AttackArena({
             className="glass rounded-xl p-4"
           >
             <div className="flex items-center gap-2 mb-3">
-              <FileCode className="h-4 w-4 text-red-500" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">
+              <FileCode className="h-4 w-4 text-red-400" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300">
                 Reproducible Artifact
               </h3>
             </div>
             <div className="flex items-center gap-2 mb-3">
-              <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 border border-slate-200 px-2.5 py-1 text-[10px] font-mono font-semibold text-slate-600">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-white/[0.04] border border-white/[0.08] px-2.5 py-1 text-[10px] font-mono font-semibold text-zinc-400">
                 <Terminal className="h-3 w-3" />
                 reproduce_failure_toctou.py
               </span>
-              <span className="text-[9px] text-slate-400">Exits with code 1</span>
+              <span className="text-[9px] text-zinc-600">Exits with code 1</span>
             </div>
             <TerminalView lines={terminalOutput} isRunning={false} />
           </motion.div>
@@ -379,10 +379,10 @@ export function AttackArena({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.5 }}
-            className="flex items-center justify-center gap-2 text-[10px] text-slate-400 py-1"
+            className="flex items-center justify-center gap-2 text-[10px] text-zinc-500 py-1"
           >
             <ArrowRight className="h-3 w-3" />
-            <span>Feeding failure trace to repair engine...</span>
+            <span>Feeding failure trace to the repair engine...</span>
           </motion.div>
         )}
       </AnimatePresence>

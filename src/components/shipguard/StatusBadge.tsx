@@ -8,25 +8,25 @@ const statusConfig: Record<
 > = {
   standby: {
     label: "STANDBY",
-    className: "bg-slate-100 text-slate-500 border-slate-200",
+    className: "bg-white/[0.04] text-zinc-400 border-white/[0.08]",
     icon: ShieldOff,
     glowClass: "",
   },
   evaluating: {
     label: "EVALUATING",
-    className: "bg-amber-50 text-amber-700 border-amber-300",
+    className: "bg-amber-500/10 text-amber-400 border-amber-500/25",
     icon: ShieldAlert,
     glowClass: "animate-pulse-glow-amber",
   },
   falsified: {
     label: "FALSIFIED",
-    className: "bg-red-50 text-red-600 border-red-300",
+    className: "bg-red-500/10 text-red-400 border-red-500/30",
     icon: ShieldX,
     glowClass: "animate-pulse-glow-red",
   },
   verified: {
     label: "VERIFIED",
-    className: "bg-emerald-50 text-emerald-600 border-emerald-300",
+    className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/25",
     icon: ShieldCheck,
     glowClass: "animate-pulse-glow-green",
   },

@@ -8,7 +8,7 @@ import { SpecColumn } from "@/components/shipguard/SpecColumn";
 import { AttackArena } from "@/components/shipguard/AttackArena";
 import { RepairColumn } from "@/components/shipguard/RepairColumn";
 import { useAuth } from "@/hooks/use-auth";
-import { LogOut, Shield } from "lucide-react";
+import { LogOut, Shield, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 function DemoModeRunner({
@@ -63,6 +63,16 @@ function DemoModeRunner({
 
   return null;
 }
+
+const phaseDescriptions: Record<DemoPhase, string> = {
+  idle: "Waiting for you to kick things off",
+  extracting: "Translating your requirements into formal invariants...",
+  contracts: "Invariants locked in — ready to stress-test",
+  attacking: "Running adversarial attacks against your code...",
+  breached: "Gotcha. Found a critical race condition — here's the proof.",
+  patching: "Autonomous repair in progress — synthesizing a fix...",
+  verified: "All 100 adversarial permutations passed. Ship it.",
+};
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
@@ -166,9 +176,9 @@ export default function Dashboard() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] pointer-events-none border-4 border-red-500/40 rounded-none"
+            className="fixed inset-0 z-[60] pointer-events-none border-4 border-red-500/30 rounded-none"
             style={{
-              boxShadow: "inset 0 0 80px rgba(239, 68, 68, 0.15)",
+              boxShadow: "inset 0 0 100px rgba(239, 68, 68, 0.1)",
             }}
           />
         )}
@@ -181,10 +191,7 @@ export default function Dashboard() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] pointer-events-none border-4 border-emerald-500/30 rounded-none"
-            style={{
-              boxShadow: "inset 0 0 60px rgba(16, 185, 129, 0.08)",
-            }}
+            className="fixed inset-0 z-[60] pointer-events-none border-4 border-emerald-500/20 rounded-none animate-border-flash-green"
           />
         )}
       </AnimatePresence>
@@ -204,15 +211,38 @@ export default function Dashboard() {
       {/* Main content */}
       <main className="flex-1 px-3 py-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-[1920px]">
+          {/* Dashboard header */}
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-lg font-bold text-white">
+                Command Center
+                <span className="text-zinc-500 font-normal ml-2 text-sm">
+                  CampusPay Ledger Service
+                </span>
+              </h1>
+              <p className="text-[11px] text-zinc-500 mt-0.5">
+                {phaseDescriptions[phase]}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
+                <Clock className="h-3 w-3" />
+                <span className="font-mono">
+                  {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Phase indicator */}
-          <div className="flex items-center justify-center gap-1 mb-4">
+          <div className="flex items-center gap-1 mb-4">
             {phases.map((p, i) => (
               <div
                 key={p}
                 className={cn(
                   "h-1 rounded-full transition-all duration-500",
-                  p === phase ? "w-8 bg-cyan-500" : "w-3 bg-slate-200",
-                  i < currentPhaseIndex ? "bg-emerald-300" : ""
+                  p === phase ? "w-8 bg-cyan-400" : "w-3 bg-white/10",
+                  i < currentPhaseIndex ? "bg-emerald-400/50" : ""
                 )}
               />
             ))}
@@ -246,17 +276,17 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Footer user info */}
-          <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
+          {/* Footer */}
+          <div className="flex items-center justify-between mt-6 pt-4 border-t border-white/[0.06]">
             <div className="flex items-center gap-2">
-              <Shield className="h-3.5 w-3.5 text-slate-300" />
-              <span className="text-[10px] text-slate-400 font-mono">
-                SHIPGUARD v1.0 — Adversarial Invariant Gate for AI Code
+              <Shield className="h-3.5 w-3.5 text-zinc-600" />
+              <span className="text-[10px] text-zinc-600 font-mono">
+                SHIPGUARD v1.0 — Adversarial invariant gate for AI code
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-[10px] text-slate-400">
-                {user?.name ? `Operator: ${user.name}` : "Operator: Guest"}
+              <span className="text-[10px] text-zinc-500">
+                {user?.name ? `Team: ${user.name}` : "Team: Demo Workspace"}
               </span>
               <Button
                 variant="ghost"
@@ -264,7 +294,7 @@ export default function Dashboard() {
                 onClick={async () => {
                   await signOut();
                 }}
-                className="gap-1 text-[10px] text-slate-400 hover:text-slate-600 h-7"
+                className="gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 h-7"
               >
                 <LogOut className="h-3 w-3" />
                 Sign out
