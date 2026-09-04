@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { DemoPhase, AttackVector } from "./types";
-import { DEFAULT_TARGET_NAME } from "./types";
 import { TerminalView } from "./TerminalView";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,24 +34,21 @@ const timelineStepsB = [
   "Credit ₹1,000",
 ];
 
-function buildTerminalOutput(targetName: string) {
-  return [
-    "$ python reproduce_failure_toctou.py",
-    `# Target ingested: ${targetName} — invariants extracted from source`,
-    "# Running concurrency attack with 2 threads...",
-    "# Thread A: check_balance() → 1000 >= 1000 → OK",
-    "# Thread B: check_balance() → 1000 >= 1000 → OK",
-    "# Thread A: deduct(1000) → balance = 0",
-    "# Thread B: deduct(1000) → balance = -1000 → INSUFFICIENT (but passed check!)",
-    "# Thread A: credit(1000) → receiver = 2000",
-    "# Thread B: credit(1000) → receiver = 2000",
-    "",
-    "AssertionError: Invariant INV-002 Falsified!",
-    "  Asset sum mismatch: expected 1000, got 2000",
-    "  Phantom currency generated: ₹1,000",
-    "  Exit code: 1",
-  ];
-}
+const terminalOutput = [
+  "$ python reproduce_failure_toctou.py",
+  "# Running concurrency attack with 2 threads...",
+  "# Thread A: check_balance() → 1000 >= 1000 → OK",
+  "# Thread B: check_balance() → 1000 >= 1000 → OK",
+  "# Thread A: deduct(1000) → balance = 0",
+  "# Thread B: deduct(1000) → balance = -1000 → INSUFFICIENT (but passed check!)",
+  "# Thread A: credit(1000) → receiver = 2000",
+  "# Thread B: credit(1000) → receiver = 2000",
+  "",
+  "AssertionError: Invariant INV-002 Falsified!",
+  "  Asset sum mismatch: expected 1000, got 2000",
+  "  Phantom currency generated: ₹1,000",
+  "  Exit code: 1",
+];
 
 function ConcurrencyTimeline({ active }: { active: boolean }) {
   const [stepA, setStepA] = useState(-1);
@@ -267,11 +263,9 @@ function StateDifferential({ breached }: { breached: boolean }) {
 export function AttackArena({
   phase,
   onLaunch,
-  targetName = DEFAULT_TARGET_NAME,
 }: {
   phase: DemoPhase;
   onLaunch: () => void;
-  targetName?: string;
 }) {
   const [selectedVector, setSelectedVector] = useState<AttackVector>("toctou");
   const isAttacking = phase === "attacking";
@@ -279,7 +273,6 @@ export function AttackArena({
   const showTimeline = isAttacking || isBreached;
   const showTerminal = isBreached;
   const canLaunch = phase === "contracts";
-  const terminalOutput = buildTerminalOutput(targetName);
 
   return (
     <div className="flex flex-col gap-3 h-full">

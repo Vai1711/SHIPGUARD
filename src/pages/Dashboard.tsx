@@ -1,8 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import type { DemoPhase, Invariant, TargetFile } from "@/components/shipguard/types";
-import { INVARIANTS, DEFAULT_TARGET_NAME } from "@/components/shipguard/types";
+import type { DemoPhase, Invariant } from "@/components/shipguard/types";
+import { INVARIANTS } from "@/components/shipguard/types";
 import { TopNav } from "@/components/shipguard/TopNav";
 import { SpecColumn } from "@/components/shipguard/SpecColumn";
 import { AttackArena } from "@/components/shipguard/AttackArena";
@@ -80,8 +80,6 @@ export default function Dashboard() {
   const [invariants, setInvariants] = useState<Invariant[]>(INVARIANTS);
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [showBreachFlash, setShowBreachFlash] = useState(false);
-  const [targetFile, setTargetFile] = useState<TargetFile | null>(null);
-  const targetName = targetFile?.name ?? DEFAULT_TARGET_NAME;
 
   const resetDemo = useCallback(() => {
     setPhase("idle");
@@ -208,7 +206,6 @@ export default function Dashboard() {
         onReset={resetDemo}
         isDemoMode={isDemoMode}
         onToggleDemo={() => setIsDemoMode((v) => !v)}
-        targetName={targetName}
       />
 
       {/* Main content */}
@@ -220,7 +217,7 @@ export default function Dashboard() {
               <h1 className="text-lg font-bold text-white">
                 Command Center
                 <span className="text-zinc-500 font-normal ml-2 text-sm">
-                  {targetName}
+                  CampusPay Ledger Service
                 </span>
               </h1>
               <p className="text-[11px] text-zinc-500 mt-0.5">
@@ -259,7 +256,6 @@ export default function Dashboard() {
                 phase={phase}
                 invariants={invariants}
                 onExtract={handleExtract}
-                onTargetChange={setTargetFile}
               />
             </div>
 
@@ -268,7 +264,6 @@ export default function Dashboard() {
               <AttackArena
                 phase={phase}
                 onLaunch={handleLaunchAttack}
-                targetName={targetName}
               />
             </div>
 

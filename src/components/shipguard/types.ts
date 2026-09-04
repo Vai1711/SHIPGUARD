@@ -25,13 +25,6 @@ export interface LedgerState {
   total: number;
 }
 
-export interface TargetFile {
-  name: string;
-  content: string;
-}
-
-export const DEFAULT_TARGET_NAME = "campus_pay.py";
-
 export const INVARIANTS: Invariant[] = [
   {
     id: "INV-001",

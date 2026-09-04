@@ -1,6 +1,5 @@
 import { cn } from "@/lib/utils";
 import type { DemoPhase } from "./types";
-import { DEFAULT_TARGET_NAME } from "./types";
 import { Button } from "@/components/ui/button";
 import { Shield, Play, RotateCcw, Zap } from "lucide-react";
 
@@ -30,14 +29,12 @@ export function TopNav({
   onReset,
   isDemoMode,
   onToggleDemo,
-  targetName = DEFAULT_TARGET_NAME,
 }: {
   phase: DemoPhase;
   onRunGate: () => void;
   onReset: () => void;
   isDemoMode: boolean;
   onToggleDemo: () => void;
-  targetName?: string;
 }) {
   const label = phaseLabels[phase];
   const dotColor = phaseDotColors[phase];
@@ -76,13 +73,8 @@ export function TopNav({
           <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">
             Target:
           </span>
-          <span
-            className={cn(
-              "glass-subtle rounded-full px-3 py-1 text-[11px] font-mono font-medium text-zinc-300",
-              targetName !== DEFAULT_TARGET_NAME && "text-emerald-300 border-emerald-500/30"
-            )}
-          >
-            {targetName} (Python 3.11)
+          <span className="glass-subtle rounded-full px-3 py-1 text-[11px] font-mono font-medium text-zinc-300">
+            CampusPay Ledger Service (Python 3.11)
           </span>
         </div>
 
