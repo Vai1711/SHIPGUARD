@@ -1,8 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import type { DemoPhase, Invariant } from "@/components/shipguard/types";
-import { INVARIANTS } from "@/components/shipguard/types";
+import type { DemoPhase, Invariant, TargetFile } from "@/components/shipguard/types";
+import { INVARIANTS, DEFAULT_TARGET_NAME } from "@/components/shipguard/types";
 import { TopNav } from "@/components/shipguard/TopNav";
 import { SpecColumn } from "@/components/shipguard/SpecColumn";
 import { AttackArena } from "@/components/shipguard/AttackArena";
@@ -66,11 +66,11 @@ function DemoModeRunner({
 
 const phaseDescriptions: Record<DemoPhase, string> = {
   idle: "Waiting for you to kick things off",
-  extracting: "Translating your requirements into formal invariants...",
+  extracting: "Translating your requirements into formal invariants via AST parsing...",
   contracts: "Invariants locked in — ready to stress-test",
-  attacking: "Running adversarial attacks against your code...",
+  attacking: "Running adversarial attacks via Hypothesis property-based testing...",
   breached: "Gotcha. Found a critical race condition — here's the proof.",
-  patching: "Autonomous repair in progress — synthesizing a fix...",
+  patching: "Autonomous repair in progress — applying LibCST AST transformation...",
   verified: "All 100 adversarial permutations passed. Ship it.",
 };
 
@@ -80,6 +80,8 @@ export default function Dashboard() {
   const [invariants, setInvariants] = useState<Invariant[]>(INVARIANTS);
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [showBreachFlash, setShowBreachFlash] = useState(false);
+  const [targetFile, setTargetFile] = useState<TargetFile | null>(null);
+  const targetName = targetFile?.name ?? DEFAULT_TARGET_NAME;
 
   const resetDemo = useCallback(() => {
     setPhase("idle");
@@ -206,6 +208,7 @@ export default function Dashboard() {
         onReset={resetDemo}
         isDemoMode={isDemoMode}
         onToggleDemo={() => setIsDemoMode((v) => !v)}
+        targetName={targetName}
       />
 
       {/* Main content */}
@@ -217,7 +220,7 @@ export default function Dashboard() {
               <h1 className="text-lg font-bold text-white">
                 Command Center
                 <span className="text-zinc-500 font-normal ml-2 text-sm">
-                  CampusPay Ledger Service
+                  {targetName}
                 </span>
               </h1>
               <p className="text-[11px] text-zinc-500 mt-0.5">
@@ -256,6 +259,7 @@ export default function Dashboard() {
                 phase={phase}
                 invariants={invariants}
                 onExtract={handleExtract}
+                onTargetChange={setTargetFile}
               />
             </div>
 
@@ -264,6 +268,7 @@ export default function Dashboard() {
               <AttackArena
                 phase={phase}
                 onLaunch={handleLaunchAttack}
+                targetName={targetName}
               />
             </div>
 
@@ -276,8 +281,24 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Backend engine info strip */}
+          <div className="mt-4 glass rounded-xl p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="h-2 w-2 rounded-full bg-cyan-400" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                Deterministic Engine (No LLM)
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[9px] text-zinc-500 font-mono">
+              <span>Invariant Extraction: Python AST parser</span>
+              <span>Adversarial Testing: Hypothesis (PBT) + SMT</span>
+              <span>Autonomous Repair: LibCST AST rewriting</span>
+              <span>Sandbox: Isolated subprocess execution</span>
+            </div>
+          </div>
+
           {/* Footer */}
-          <div className="flex items-center justify-between mt-6 pt-4 border-t border-white/[0.06]">
+          <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/[0.06]">
             <div className="flex items-center gap-2">
               <Shield className="h-3.5 w-3.5 text-zinc-600" />
               <span className="text-[10px] text-zinc-600 font-mono">

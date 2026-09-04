@@ -49,6 +49,13 @@ export const INVARIANTS: Invariant[] = [
   },
 ];
 
+export interface TargetFile {
+  name: string;
+  content: string;
+}
+
+export const DEFAULT_TARGET_NAME = "campus_pay.py";
+
 export const SPEC_TEXT = `R1: Non-Negative Balance — No account balance may go below zero.
 R2: Asset Conservation — The sum of all account balances before a transfer must equal the sum after.
 R3: Atomicity & Idempotency — Concurrent transfers must execute atomically; simultaneous execution must not produce double-spends or phantom currency.`;
