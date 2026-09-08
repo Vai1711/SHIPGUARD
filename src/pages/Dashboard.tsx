@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { DemoPhase, Invariant, TargetFile } from "@/components/shipguard/types";
 import { INVARIANTS, DEFAULT_TARGET_NAME } from "@/components/shipguard/types";
+import { deriveInvariants, analyzeSource } from "@/components/shipguard/analysis";
 import { TopNav } from "@/components/shipguard/TopNav";
 import { SpecColumn } from "@/components/shipguard/SpecColumn";
 import { AttackArena } from "@/components/shipguard/AttackArena";
@@ -87,6 +88,17 @@ export default function Dashboard() {
     setPhase("idle");
     setInvariants(INVARIANTS.map((i) => ({ ...i, status: "standby" })));
     setShowBreachFlash(false);
+  }, []);
+
+  // Custom pasted sources get their contracts derived live from the code;
+  // the preset keeps the canonical CampusPay contracts.
+  const handleTargetChange = useCallback((file: TargetFile | null) => {
+    setTargetFile(file);
+    if (file && file.name === "pasted_target.py") {
+      setInvariants(deriveInvariants(analyzeSource(file.content)));
+    } else if (!file) {
+      setInvariants(INVARIANTS.map((i) => ({ ...i, status: "standby" })));
+    }
   }, []);
 
   const advancePhase = useCallback(() => {
@@ -259,7 +271,7 @@ export default function Dashboard() {
                 phase={phase}
                 invariants={invariants}
                 onExtract={handleExtract}
-                onTargetChange={setTargetFile}
+                onTargetChange={handleTargetChange}
               />
             </div>
 
@@ -277,6 +289,8 @@ export default function Dashboard() {
               <RepairColumn
                 phase={phase}
                 onInvokeRepair={handleInvokeRepair}
+                invariants={invariants}
+                targetName={targetName}
               />
             </div>
           </div>

@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import type { DemoPhase } from "./types";
+import type { DemoPhase, Invariant } from "./types";
+import { buildDiffLines, buildReceipt } from "./diff";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -14,18 +15,13 @@ import {
   Lock,
   BadgeCheck,
   ShieldCheck,
+  Braces,
+  FileCode,
 } from "lucide-react";
 
-const diffLines = [
-  { type: "removed" as const, text: "  self.balances[from_acc] -= amount" },
-  { type: "removed" as const, text: "  self.balances[to_acc] += amount" },
-  { type: "added" as const, text: "  with self._lock:" },
-  { type: "added" as const, text: "      if self.balances[from_acc] >= amount:" },
-  { type: "added" as const, text: "          self.balances[from_acc] -= amount" },
-  { type: "added" as const, text: "          self.balances[to_acc] += amount" },
-];
-
 function DiffViewer({ visible }: { visible: boolean }) {
+  const lines = buildDiffLines();
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -38,25 +34,34 @@ function DiffViewer({ visible }: { visible: boolean }) {
         <span className="text-[10px] font-mono font-semibold text-zinc-400">
           campus_pay_patched.py
         </span>
-        <span className="text-[9px] text-emerald-400 ml-auto font-semibold">+2 removed, +4 added</span>
+        <span className="text-[9px] text-red-400 ml-auto font-semibold">
+          −2 removed
+        </span>
+        <span className="text-[9px] text-emerald-400 font-semibold">
+          +4 added
+        </span>
       </div>
       <div className="p-2 font-mono text-[10px] leading-5">
-        {diffLines.map((line, i) => (
+        {lines.map((line, i) => (
           <motion.div
             key={i}
             initial={{ opacity: 0, x: -6 }}
             animate={{ opacity: visible ? 1 : 0, x: 0 }}
             transition={{ delay: visible ? 0.3 + i * 0.1 : 0, duration: 0.3 }}
             className={cn(
-              "px-2 rounded-sm",
+              "flex items-start gap-2 px-2 rounded-sm",
               line.type === "removed" && "bg-red-500/[0.08] text-red-400",
-              line.type === "added" && "bg-emerald-500/[0.08] text-emerald-400"
+              line.type === "added" && "bg-emerald-500/[0.08] text-emerald-400",
+              line.type === "context" && "text-zinc-500"
             )}
           >
-            <span className="text-zinc-600 select-none mr-2">
-              {line.type === "removed" ? "−" : "+"}
+            <span className="text-zinc-600 select-none w-6 text-right flex-shrink-0 tabular-nums">
+              {line.lineNo ?? ""}
             </span>
-            {line.text}
+            <span className="select-none flex-shrink-0">
+              {line.type === "removed" ? "−" : line.type === "added" ? "+" : " "}
+            </span>
+            <span className="whitespace-pre">{line.text}</span>
           </motion.div>
         ))}
       </div>
@@ -127,20 +132,23 @@ function RadialGauge({ progress, visible }: { progress: number; visible: boolean
   );
 }
 
-function AuditReceipt({ visible }: { visible: boolean }) {
+function AuditReceipt({
+  visible,
+  invariants,
+  targetName,
+}: {
+  visible: boolean;
+  invariants: Invariant[];
+  targetName: string;
+}) {
   const [copied, setCopied] = useState(false);
+  const receipt = useMemo(
+    () => buildReceipt({ invariants, targetName }),
+    [invariants, targetName]
+  );
 
   const handleCopy = () => {
-    const receipt = `SHIPGUARD VERIFICATION RECEIPT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STATUS: 🟢 VERIFIED & SIGNED
-COMMIT HASH: sha256:7f3a9e2b4c8d1f6e3a7b9c2d4e8f1a3b5c7d9e2f4a6b8c0d2e4f6a8b1c3d5e7
-TARGET: CampusPay Ledger Service (Python 3.11)
-INVARIANTS VERIFIED: 3/3
-GATE DECISION: MERGE APPROVED (CI/CD UNLOCKED)
-TIMESTAMP: ${new Date().toISOString()}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
-    navigator.clipboard.writeText(receipt);
+    navigator.clipboard.writeText(JSON.stringify(receipt, null, 2));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -163,9 +171,11 @@ TIMESTAMP: ${new Date().toISOString()}
           </motion.div>
           <div>
             <h4 className="text-[11px] font-bold uppercase tracking-wider text-emerald-300">
-              Cryptographic Verification
+              Enterprise Audit Certificate
             </h4>
-            <p className="text-[9px] text-emerald-400/60 font-mono">Immutable audit receipt</p>
+            <p className="text-[9px] text-emerald-400/60 font-mono">
+              Immutable audit receipt · SHA-256 signed
+            </p>
           </div>
         </div>
       </div>
@@ -179,13 +189,40 @@ TIMESTAMP: ${new Date().toISOString()}
         <div className="flex items-center gap-2">
           <Lock className="h-3.5 w-3.5 text-zinc-500" />
           <span className="text-[11px] font-semibold text-zinc-300">COMMIT:</span>
-          <span className="font-mono text-[10px] text-zinc-400">sha256:7f3a9e2b4c...</span>
+          <span className="font-mono text-[10px] text-zinc-400">
+            sha256:{receipt.commit_hash.slice(0, 12)}…
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <FileCheck className="h-3.5 w-3.5 text-zinc-500" />
+          <span className="text-[11px] font-semibold text-zinc-300">INVARIANTS:</span>
+          <span className="text-[11px] font-bold text-emerald-400">
+            {receipt.invariants_verified} / {receipt.invariants_total} verified
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <FileCheck className="h-3.5 w-3.5 text-zinc-500" />
+          <span className="text-[11px] font-semibold text-zinc-300">STRESS:</span>
+          <span className="text-[11px] font-bold text-emerald-400">
+            {receipt.permutations_passed} / {receipt.permutations_total} permutations passed
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <FileCheck className="h-3.5 w-3.5 text-zinc-500" />
           <span className="text-[11px] font-semibold text-zinc-300">DECISION:</span>
-          <span className="text-[11px] font-bold text-emerald-400">MERGE APPROVED (CI/CD UNLOCKED)</span>
+          <span className="text-[11px] font-bold text-emerald-400">
+            {receipt.decision}
+          </span>
         </div>
+      </div>
+
+      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2 mb-3">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+          Approved for Merge into CI/CD
+        </p>
+        <p className="text-[9px] text-emerald-400/60 font-mono mt-0.5">
+          Gate decision: {receipt.decision} · {receipt.engine}
+        </p>
       </div>
 
       <Button
@@ -201,8 +238,8 @@ TIMESTAMP: ${new Date().toISOString()}
           </>
         ) : (
           <>
-            <Copy className="h-3 w-3" />
-            Copy CI/CD Receipt
+            <Braces className="h-3 w-3" />
+            Copy Receipt JSON
           </>
         )}
       </Button>
@@ -213,9 +250,13 @@ TIMESTAMP: ${new Date().toISOString()}
 export function RepairColumn({
   phase,
   onInvokeRepair,
+  invariants,
+  targetName,
 }: {
   phase: DemoPhase;
   onInvokeRepair: () => void;
+  invariants: Invariant[];
+  targetName: string;
 }) {
   const [testProgress, setTestProgress] = useState(0);
   const isPatching = phase === "patching";
@@ -310,7 +351,7 @@ export function RepairColumn({
             className="glass rounded-xl p-4"
           >
             <div className="flex items-center gap-2 mb-3">
-              <Code className="h-4 w-4 text-cyan-400" />
+              <FileCode className="h-4 w-4 text-cyan-400" />
               <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300">
                 Unified Code Diff
               </h3>
@@ -353,7 +394,11 @@ export function RepairColumn({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <AuditReceipt visible={showReceipt} />
+            <AuditReceipt
+              visible={showReceipt}
+              invariants={invariants}
+              targetName={targetName}
+            />
           </motion.div>
         )}
       </AnimatePresence>
