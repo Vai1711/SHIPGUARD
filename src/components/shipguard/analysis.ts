@@ -1,4 +1,5 @@
 import type { Invariant } from "./types";
+import { DEFAULT_TARGET_NAME } from "./types";
 
 /**
  * Client-side static analysis of Python source using regex heuristics.
@@ -17,6 +18,19 @@ export interface SourceAnalysis {
   targetName: string;
 }
 
+/**
+ * Result of analyzing a source snippet. `report` is null when the pasted
+ * text does not look like a usable Python module (no top-level def/class),
+ * so the UI can disable extraction until real code is provided.
+ */
+export interface AnalysisResult {
+  report: SourceAnalysis | null;
+}
+
+// Re-exported so column components can render the preset target name
+// without importing from types directly.
+export { DEFAULT_TARGET_NAME };
+
 const FUNCTION_RE = /^\s*def\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/gm;
 const GUARD_RE =
   /\bif\s+(.+?):|\belif\s+(.+?):|\bwhile\s+(.+?):|\bassert\s+(.+?)$/gm;
@@ -25,7 +39,15 @@ function unique(values: string[]): string[] {
   return Array.from(new Set(values));
 }
 
-export function analyzeSource(source: string): SourceAnalysis {
+export function analyzeSource(source: string): AnalysisResult {
+  // Extract live analysis only for text that plausibly contains Python code.
+  // An empty/blank paste yields no report and the extract button stays disabled.
+  const hasFunctions = /^\s*(?:def\s+\w+|class\s+\w+|async\s+def\s+\w+)/m.test(source);
+
+  if (!hasFunctions) {
+    return { report: null };
+  }
+
   const functions = unique(
     Array.from(source.matchAll(FUNCTION_RE), (m) => m[1] ?? "")
   ).filter(Boolean);
@@ -63,14 +85,16 @@ export function analyzeSource(source: string): SourceAnalysis {
   ).filter(Boolean);
 
   return {
-    functions,
-    branches,
-    mutations,
-    raceSuspect,
-    usesLock,
-    guards,
-    stateTargets,
-    targetName: "pasted_target.py",
+    report: {
+      functions,
+      branches,
+      mutations,
+      raceSuspect,
+      usesLock,
+      guards,
+      stateTargets,
+      targetName: "pasted_target.py",
+    },
   };
 }
 
@@ -79,7 +103,11 @@ export function analyzeSource(source: string): SourceAnalysis {
  * three canonical classes SHIPGUARD hunts: BOUNDARY, CONSERVATION, CONCURRENCY.
  */
 export function deriveInvariants(analysis: SourceAnalysis): Invariant[] {
-  const primary = analysis.functions[0] ?? "transfer";
+  // Prefer a real entrypoint over dunder helpers like __init__.
+  const primary =
+    analysis.functions.find((f) => !f.startsWith("__")) ??
+    analysis.functions[0] ??
+    "transfer";
   const state = analysis.stateTargets[0] ?? "balance";
   const guard = analysis.guards[0] ?? `${state} >= 0`;
 

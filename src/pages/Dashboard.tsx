@@ -95,7 +95,10 @@ export default function Dashboard() {
   const handleTargetChange = useCallback((file: TargetFile | null) => {
     setTargetFile(file);
     if (file && file.name === "pasted_target.py") {
-      setInvariants(deriveInvariants(analyzeSource(file.content)));
+      const { report } = analyzeSource(file.content);
+      if (report) {
+        setInvariants(deriveInvariants(report));
+      }
     } else if (!file) {
       setInvariants(INVARIANTS.map((i) => ({ ...i, status: "standby" })));
     }

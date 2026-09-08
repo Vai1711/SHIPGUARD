@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import type { DemoPhase, Invariant, TargetFile } from "./types";
 import { DEFAULT_TARGET_NAME, deriveInvariants, analyzeSource } from "./analysis";
 import { SAMPLE_MODULE } from "./samples";
+import type { SourceAnalysis } from "./analysis";
 import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/button";
 import {
@@ -61,15 +62,23 @@ export function SpecColumn({
   // Live static analysis of the currently edited custom code (debounced).
   const customAnalysis = useMemo(() => analyzeSource(customCode), [customCode]);
 
-  // Only reset invariants while the gate has not started — once contracts are
-  // armed, editing the source must not silently swap the contracts mid-run.
+  // Publish the custom source to the gate while the gate has not started —
+  // once contracts are armed, editing the source must not silently swap
+  // the target or the derived contracts mid-run.
   useEffect(() => {
     if (gateLocked) return;
     if (sourceMode === "custom" && customAnalysis.report) {
       onTargetChange?.({ name: "pasted_target.py", content: customCode });
-      onExtract();
     }
-  }, [gateLocked, sourceMode, customAnalysis.report, customCode, onTargetChange, onExtract]);
+  }, [gateLocked, sourceMode, customAnalysis.report, customCode, onTargetChange]);
+
+  // Arm the invariants derived from the pasted code when extraction starts.
+  const extractFromCustom = () => {
+    const report: SourceAnalysis | null = customAnalysis.report;
+    if (!report) return;
+    onTargetChange?.({ name: "pasted_target.py", content: customCode });
+    onExtract();
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -489,7 +498,7 @@ R3: Atomicity & Idempotency
               </div>
 
               <Button
-                onClick={onExtract}
+                onClick={sourceMode === "custom" ? extractFromCustom : onExtract}
                 disabled={isExtracting || showContracts || (sourceMode === "custom" && !customAnalysis.report)}
                 size="sm"
                 className="w-full gap-2 text-[11px] font-semibold bg-violet-500 hover:bg-violet-400 text-white shadow-md shadow-violet-500/20 transition-all disabled:opacity-40 disabled:shadow-none"
