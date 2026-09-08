@@ -384,7 +384,8 @@ function ContractChip({
         "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] font-semibold transition-all duration-500",
         inv.status === "falsified" && "border-red-500/40 bg-red-500/10 text-red-300",
         inv.status === "verified" && "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
-        inv.status === "evaluating" && "border-amber-500/40 bg-amber-500/10 text-amber-300",
+        inv.status === "evaluating" &&
+          "border-amber-500/40 bg-amber-500/10 text-amber-300 animate-pulse-glow-amber",
         inv.status === "standby" && "border-white/[0.08] bg-white/[0.04] text-zinc-400",
         onSave && !locked && "hover:border-cyan-500/40 hover:text-cyan-300 cursor-pointer",
         (locked || !onSave) && "cursor-default"

@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import type { RefObject } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { DemoPhase, Invariant, TargetFile } from "@/components/shipguard/types";
@@ -182,6 +183,24 @@ const slideVariants = {
   }),
 };
 
+/**
+ * Smoothly scrolls the main stage into view when the active step changes,
+ * so newly revealed content (timeline, terminal, diff) below the fold is
+ * always in sight. Respects user scroll position when pinned.
+ */
+function useStepScrollEffect(stageRef: RefObject<HTMLElement | null>, activeStep: WorkflowStep) {
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    // Only scroll when the stage top is above the comfortable viewing band.
+    if (rect.top < 96) {
+      stage.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStep]);
+}
+
 export default function Dashboard() {
   const { user, signOut } = useAuth();
   const [phase, setPhase] = useState<DemoPhase>("idle");
@@ -201,10 +220,12 @@ export default function Dashboard() {
   const [pinnedStep, setPinnedStep] = useState<WorkflowStep | null>(null);
   const [[step, direction], setStepState] = useState<[WorkflowStep, 1 | -1]>([1, 1]);
   const targetName = targetFile?.name ?? DEFAULT_TARGET_NAME;
+  const stageRef = useRef<HTMLDivElement>(null);
 
   const currentStep = stepForPhase(phase);
   const maxStep = maxStepForPhase(phase);
   const activeStep = pinnedStep ?? currentStep;
+  useStepScrollEffect(stageRef, activeStep);
 
   // Keep a pinned step from outliving its unlock window (e.g. after Reset).
   useEffect(() => {
@@ -214,13 +235,23 @@ export default function Dashboard() {
   }, [pinnedStep, maxStep]);
 
   // Sync the carousel to the phase unless the user pinned a manual view.
+  // A deliberate hold delays the slide slightly so the just-finished step's
+  // results register before the view moves on.
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (pinnedStep !== null) return;
-    setStepState(([prevStep]) => {
-      if (prevStep === currentStep) return [prevStep, 1];
-      return [currentStep, currentStep > prevStep ? 1 : -1];
-    });
-  }, [currentStep, pinnedStep]);
+    if (step === currentStep) return;
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = setTimeout(() => {
+      setStepState(([prevStep]) => {
+        if (prevStep === currentStep) return [prevStep, 1];
+        return [currentStep, currentStep > prevStep ? 1 : -1];
+      });
+    }, 700);
+    return () => {
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    };
+  }, [currentStep, pinnedStep, step]);
 
   const goToStep = useCallback(
     (target: WorkflowStep) => {
@@ -530,7 +561,7 @@ export default function Dashboard() {
           </div>
 
           {/* Single-stage carousel with slide transitions */}
-          <div className="relative overflow-hidden rounded-2xl">
+          <div ref={stageRef} className="relative overflow-hidden rounded-2xl">
             <AnimatePresence mode="wait" custom={direction} initial={false}>
               <motion.div
                 key={activeStep}

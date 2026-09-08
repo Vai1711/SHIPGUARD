@@ -386,7 +386,10 @@ export function AttackArena({
           onClick={onLaunch}
           disabled={!canLaunch}
           size="sm"
-          className="w-full gap-1.5 text-[11px] font-semibold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-zinc-950 shadow-md shadow-amber-500/20 transition-all disabled:opacity-40 disabled:shadow-none"
+          className={cn(
+            "w-full gap-1.5 text-[11px] font-semibold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-zinc-950 shadow-md shadow-amber-500/20 transition-all disabled:opacity-40 disabled:shadow-none",
+            isAttacking && "animate-pulse-glow-amber"
+          )}
         >
           <Flame className="h-3.5 w-3.5" />
           Launch Adversarial Suite

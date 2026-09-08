@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
@@ -8,6 +9,21 @@ interface TerminalViewProps {
 }
 
 export function TerminalView({ lines, isRunning = false, className }: TerminalViewProps) {
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  // Keep the latest output visible as lines stream in (matches a real
+  // terminal). A user scroll-up is respected — auto-scroll re-engages
+  // when they return to the bottom.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const nearBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    if (nearBottom) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [lines]);
+
   return (
     <div
       className={cn(
@@ -27,7 +43,7 @@ export function TerminalView({ lines, isRunning = false, className }: TerminalVi
         </span>
       </div>
       {/* Terminal body */}
-      <div className="p-3 font-mono text-[11px] leading-5 max-h-40 overflow-y-auto">
+      <div ref={bodyRef} className="p-3 font-mono text-[11px] leading-5 max-h-40 overflow-y-auto">
         {lines.map((line, i) => (
           <motion.div
             key={i}
