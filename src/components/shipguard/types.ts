@@ -16,6 +16,12 @@ export interface Invariant {
   type: string;
   label: string;
   description: string;
+  /**
+   * Machine-checkable predicate over the attack execution context, e.g.
+   * "post_total == pre_total". Editable by the user; compiled by the
+   * attack synthesizer (Python) and the client demo evaluator (TS).
+   */
+  expression?: string;
   status: InvariantStatus;
 }
 

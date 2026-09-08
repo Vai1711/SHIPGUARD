@@ -117,6 +117,7 @@ export function deriveInvariants(analysis: SourceAnalysis): Invariant[] {
       type: "BOUNDARY",
       label: `${state} never < 0`,
       description: `∀ call to ${primary}(): assert ${guard}`,
+      expression: "post_sender >= 0 and post_receiver >= 0",
       status: "standby",
     },
     {
@@ -124,6 +125,7 @@ export function deriveInvariants(analysis: SourceAnalysis): Invariant[] {
       type: "CONSERVATION",
       label: "State conservation under mutation",
       description: `Σ(${state}_pre) == Σ(${state}_post) across every mutation path in ${primary}()`,
+      expression: "post_total == pre_total",
       status: "standby",
     },
     {
@@ -135,6 +137,7 @@ export function deriveInvariants(analysis: SourceAnalysis): Invariant[] {
       description: analysis.usesLock
         ? "Concurrent execution must remain equivalent to sequential (lock discipline detected)"
         : "Concurrent execution must be equivalent to sequential — no interleaving may double-apply a mutation",
+      expression: "post_total == pre_total",
       status: "standby",
     },
   ];
