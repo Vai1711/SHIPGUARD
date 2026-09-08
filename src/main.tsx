@@ -1,3 +1,4 @@
+// App bootstrap. (Vly toolbar wrapper removed — see cleanup.)
 import { Toaster } from "@/components/ui/sonner";
 import { RequireAuth } from "@/components/RequireAuth";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
