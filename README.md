@@ -1,5 +1,5 @@
 ```markdown
-# SHIPGUARD 🛡️
+## SHIPGUARD 🛡️
 ### Deterministic Adversarial Invariant Gate for AI-Generated Code
 
 > **Zero LLM Hallucinations. Zero External API Costs. Pure Formal Verification.**  
