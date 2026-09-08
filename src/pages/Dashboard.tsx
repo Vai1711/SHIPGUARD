@@ -24,9 +24,11 @@ import { Button } from "@/components/ui/button";
 function DemoModeRunner({
   phase,
   onAdvance,
+  onAccept,
 }: {
   phase: DemoPhase;
   onAdvance: () => void;
+  onAccept: () => void;
 }) {
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -40,36 +42,37 @@ function DemoModeRunner({
     timeoutsRef.current.forEach(clearTimeout);
     timeoutsRef.current = [];
 
-    const scheduleAdvance = (delay: number) => {
-      const t = setTimeout(() => {
-        onAdvance();
-      }, delay);
+    const schedule = (fn: () => void, delay: number) => {
+      const t = setTimeout(fn, delay);
       timeoutsRef.current.push(t);
     };
 
     switch (phase) {
       case "idle":
-        scheduleAdvance(1500);
+        // Gated: opening the gate plays the whole demo end-to-end.
+        schedule(onAccept, 1500);
         break;
       case "extracting":
-        scheduleAdvance(2500);
+        schedule(onAdvance, 2500);
         break;
       case "contracts":
-        scheduleAdvance(3000);
+        // Gated: auto-launch the attack suite.
+        schedule(onAccept, 3000);
         break;
       case "attacking":
-        scheduleAdvance(4000);
+        schedule(onAdvance, 4000);
         break;
       case "breached":
-        scheduleAdvance(3000);
+        // Gated: auto-invoke the repair, then slide to Step 3.
+        schedule(onAccept, 3000);
         break;
       case "patching":
-        scheduleAdvance(4000);
+        schedule(onAdvance, 4000);
         break;
       case "verified":
         break;
     }
-  }, [phase, onAdvance]);
+  }, [phase, onAdvance, onAccept]);
 
   return null;
 }
@@ -213,6 +216,18 @@ export default function Dashboard() {
     setPinnedStep(null);
   }, []);
 
+  // Persist a user-edited invariant (label + formal description) across the
+  // attack, repair, and audit phases.
+  const handleUpdateInvariant = useCallback((updated: Invariant) => {
+    setInvariants((prev) =>
+      prev.map((inv) =>
+        inv.id === updated.id
+          ? { ...inv, label: updated.label, description: updated.description }
+          : inv
+      )
+    );
+  }, []);
+
   // Custom pasted sources get their contracts derived live from the code;
   // the preset keeps the canonical CampusPay contracts.
   const handleTargetChange = useCallback((file: TargetFile | null) => {
@@ -249,6 +264,46 @@ export default function Dashboard() {
       }
     });
   }, []);
+
+  /** Open the phase's user gate (extract / launch attack / invoke repair). */
+  const acceptGate = useCallback(() => {
+    setPhase((prev) => {
+      switch (prev) {
+        case "idle":
+          return "extracting";
+        case "contracts":
+          return "attacking";
+        case "breached":
+          return "patching";
+        default:
+          return prev;
+      }
+    });
+  }, []);
+
+  // Anti-stall guard: in-flight phases (extracting / attacking / patching)
+  // always auto-advance, in every mode. Demo mode additionally auto-accepts
+  // the gated phases so the demo plays end-to-end unattended.
+  useEffect(() => {
+    if (isGatedPhase(phase)) {
+      if (isDemoMode) {
+        const t = setTimeout(() => acceptGate(), 100);
+        return () => clearTimeout(t);
+      }
+      return;
+    }
+    // Spinner phases: bounded runtimes that always resolve forward.
+    const delays: Partial<Record<DemoPhase, number>> = {
+      extracting: 2500,
+      attacking: 4000,
+      patching: 4000,
+    };
+    const delay = delays[phase];
+    if (delay) {
+      const t = setTimeout(() => advancePhase(), delay);
+      return () => clearTimeout(t);
+    }
+  }, [phase, isDemoMode, acceptGate, advancePhase]);
 
   // Update invariant statuses based on phase
   useEffect(() => {
@@ -373,7 +428,13 @@ export default function Dashboard() {
       </AnimatePresence>
 
       {/* Demo mode runner */}
-      {isDemoMode && <DemoModeRunner phase={phase} onAdvance={advancePhase} />}
+      {isDemoMode && (
+        <DemoModeRunner
+          phase={phase}
+          onAdvance={advancePhase}
+          onAccept={acceptGate}
+        />
+      )}
 
       {/* Top Nav */}
       <TopNav
@@ -446,12 +507,17 @@ export default function Dashboard() {
                     invariants={invariants}
                     onExtract={handleExtract}
                     onTargetChange={handleTargetChange}
+                    onUpdateInvariant={handleUpdateInvariant}
                   />
                 )}
 
                 {activeStep === 2 && (
                   <div className="flex flex-col gap-3">
-                    <InvariantContracts invariants={invariants} compact />
+                    <InvariantContracts
+                      invariants={invariants}
+                      compact
+                      onUpdateInvariant={handleUpdateInvariant}
+                    />
                     <AttackArena
                       phase={phase}
                       onLaunch={handleLaunchAttack}
@@ -480,7 +546,11 @@ export default function Dashboard() {
 
                 {activeStep === 3 && (
                   <div className="flex flex-col gap-3">
-                    <InvariantContracts invariants={invariants} compact />
+                    <InvariantContracts
+                      invariants={invariants}
+                      compact
+                      onUpdateInvariant={handleUpdateInvariant}
+                    />
                     <RepairColumn
                       phase={phase}
                       onInvokeRepair={handleInvokeRepair}

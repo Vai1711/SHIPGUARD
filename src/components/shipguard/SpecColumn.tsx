@@ -30,11 +30,13 @@ export function SpecColumn({
   invariants,
   onExtract,
   onTargetChange,
+  onUpdateInvariant,
 }: {
   phase: DemoPhase;
   invariants: Invariant[];
   onExtract: () => void;
   onTargetChange?: (file: TargetFile | null) => void;
+  onUpdateInvariant?: (updated: Invariant) => void;
 }) {
   const [sourceMode, setSourceMode] = useState<"preset" | "custom">("preset");
   const [customCode, setCustomCode] = useState<string>(SAMPLE_MODULE);
@@ -539,7 +541,7 @@ R3: Atomicity & Idempotency
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
           >
-            <InvariantContracts invariants={invariants} />
+            <InvariantContracts invariants={invariants} onUpdateInvariant={onUpdateInvariant} />
           </motion.div>
         )}
       </AnimatePresence>
