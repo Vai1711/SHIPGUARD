@@ -1,8 +1,8 @@
 ```markdown
-## SHIPGUARD 🛡️
+##SHIPGUARD 🛡️
 ### Deterministic Adversarial Invariant Gate for AI-Generated Code
 
-> **Zero LLM Hallucinations. Zero External API Costs. Pure Formal Verification.**  
+> Zero LLM Hallucinations. Zero External API Costs. Pure Formal Verification.**  
 > Built as an automated, independent verification harness for autonomous code generation agents (such as **IBM Bob**).
 
 ---
@@ -21,36 +21,33 @@ Autonomous coding agents (e.g., IBM Bob) can generate functional software rapidl
 
 ## 🏛️ System Architecture
 
-
+```
+                      [ AI Agent: IBM Bob ]
+                                │
+                                │ (Generates Python Service)
+                                ▼
+┌──────────────────────────────────────────────────────────────┐
+│                 SHIPGUARD VERIFICATION GATE                  │
+│                                                              │
+│  [1] Static Invariant Extraction                             │
+│      Python AST Parser ──► Extracts Formal Contract Rules    │
+│                                                              │
+│  [2] Adversarial Stress Testing                              │
+│      Hypothesis Engine ──► Concurrency Barrier Interleaving  │
+│                                      │                       │
+│                                      ▼ (Breach Falsified)    │
+│  [3] Autonomous AST Repair                                   │
+│      LibCST Transformer ──► Injects Thread-Safe Mutex Lock   │
+│                                      │                       │
+│                                      ▼                       │
+│  [4] Permutation Re-Verification                             │
+│      100 Interleavings ──► Cryptographic SHA-256 Receipt     │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+                   [ CI/CD Merge Unlocked ]
 ```
 
-```
-                   [ AI Agent (IBM Bob) ]
-                             │  (Generates Python Service)
-                             ▼
-
-```
-
-┌─────────────────────────────────────────────────────────────────┐
-│                    SHIPGUARD VERIFICATION GATE                  │
-│                                                                 │
-│  [1. Static Extraction]                                         │
-│       Python AST Parser ──► Extracts Formal Invariant Contracts │
-│                                                                 │
-│  [2. Adversarial Fuzzing]                                       │
-│       Hypothesis Engine ──► Concurrency Barrier Interleaving   │
-│                                        │                        │
-│                                        ▼ (Breach Exposed)       │
-│  [3. Deterministic AST Repair]                                  │
-│       LibCST Transformer ──► Injects Thread-Safe Mutex / Locks  │
-│                                        │                        │
-│                                        ▼                        │
-│  [4. Permutation Re-Verification]                              │
-│       100 Iterations Fuzzed ──► SHA-256 Signed Audit Receipt    │
-└────────────────────────────────┬────────────────────────────────┘
-│
-▼
-[ CI/CD Merge Unlocked ]
 
 ```
 
