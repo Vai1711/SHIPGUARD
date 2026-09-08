@@ -14,13 +14,10 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   LogOut,
   Shield,
-  Clock,
   ChevronLeft,
   ChevronRight,
   ShieldCheck,
   Wrench,
-  LayoutGrid,
-  ListChecks,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -148,8 +145,6 @@ const slideVariants = {
   }),
 };
 
-type ViewMode = "grid" | "workflow";
-
 export default function Dashboard() {
   const { user, signOut } = useAuth();
   const [phase, setPhase] = useState<DemoPhase>("idle");
@@ -157,9 +152,6 @@ export default function Dashboard() {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [showBreachFlash, setShowBreachFlash] = useState(false);
   const [targetFile, setTargetFile] = useState<TargetFile | null>(null);
-  // The dashboard starts on the original Command Center grid; the guided
-  // workflow is a switchable view sharing the same phase state.
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   // null = follow the phase automatically; set only by explicit Back/Next clicks.
   const [pinnedStep, setPinnedStep] = useState<WorkflowStep | null>(null);
   const [[step, direction], setStepState] = useState<[WorkflowStep, 1 | -1]>([1, 1]);
@@ -307,12 +299,11 @@ export default function Dashboard() {
     advancePhase();
   }, [phase, isDemoMode, goToStep, advancePhase]);
 
-  // Stepper clicks (both views): navigate to that step's page. From the
-  // Command Center grid this jumps into the guided workflow at that step.
+  // Stepper clicks: navigate to that step's page (back or forward, up to
+  // the furthest unlocked step).
   const handleStepSelect = useCallback(
     (target: WorkflowStep) => {
       goToStep(target);
-      setViewMode("workflow");
     },
     [goToStep]
   );
@@ -382,285 +373,166 @@ export default function Dashboard() {
         targetName={targetName}
       />
 
-      {/* Main content */}
+      {/* Main content — focused single-stage workflow */}
       <main className="flex-1 px-3 py-4 sm:px-6 lg:px-8">
-        {/* View mode toggle */}
-        <div className="flex justify-end mb-3">
-          <div className="inline-flex items-center rounded-lg border border-white/[0.08] bg-white/[0.03] p-0.5">
-            <button
-              onClick={() => setViewMode("grid")}
+        <div className="mx-auto max-w-4xl">
+          {/* Workflow stepper */}
+          <StepStepper
+            current={activeStep}
+            maxReached={maxStep}
+            onStepSelect={handleStepSelect}
+          />
+
+          {/* Step headline + phase descriptor */}
+          <div className="mt-4 mb-3 text-center px-2">
+            <h1 className="text-base sm:text-lg font-bold text-white">
+              {stepHeadline[activeStep]}
+            </h1>
+            <p
               className={cn(
-                "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[10px] font-semibold transition-all duration-200 cursor-pointer",
-                viewMode === "grid"
-                  ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
-                  : "text-zinc-500 hover:text-zinc-300 border border-transparent"
+                "text-[11px] mt-1 font-mono",
+                phase === "breached"
+                  ? "text-red-400"
+                  : phase === "verified"
+                    ? "text-emerald-400"
+                    : "text-zinc-500"
               )}
             >
-              <LayoutGrid className="h-3 w-3" />
-              Command Center
-            </button>
-            <button
-              onClick={() => setViewMode("workflow")}
-              className={cn(
-                "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[10px] font-semibold transition-all duration-200 cursor-pointer",
-                viewMode === "workflow"
-                  ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
-                  : "text-zinc-500 hover:text-zinc-300 border border-transparent"
-              )}
-            >
-              <ListChecks className="h-3 w-3" />
-              Guided Workflow
-            </button>
+              {phaseDescriptions[phase]}
+            </p>
           </div>
-        </div>
 
-        {viewMode === "workflow" ? (
-          /* ============ Guided Workflow (focused step-by-step) ============ */
-          <div className="mx-auto max-w-4xl">
-            {/* Workflow stepper */}
-            <StepStepper
-              current={activeStep}
-              maxReached={maxStep}
-              onStepSelect={handleStepSelect}
-            />
-
-            {/* Step headline + phase descriptor */}
-            <div className="mt-4 mb-3 text-center px-2">
-              <h1 className="text-base sm:text-lg font-bold text-white">
-                {stepHeadline[activeStep]}
-              </h1>
-              <p
+          {/* Phase indicator dots */}
+          <div className="flex items-center justify-center gap-1 mb-4">
+            {phases.map((p, i) => (
+              <div
+                key={p}
                 className={cn(
-                  "text-[11px] mt-1 font-mono",
-                  phase === "breached"
-                    ? "text-red-400"
-                    : phase === "verified"
-                      ? "text-emerald-400"
-                      : "text-zinc-500"
+                  "h-1 rounded-full transition-all duration-500",
+                  p === phase ? "w-8 bg-cyan-400" : "w-3 bg-white/10",
+                  i < currentPhaseIndex ? "bg-emerald-400/50" : ""
                 )}
-              >
-                {phaseDescriptions[phase]}
-              </p>
-            </div>
-
-            {/* Phase indicator dots */}
-            <div className="flex items-center justify-center gap-1 mb-4">
-              {phases.map((p, i) => (
-                <div
-                  key={p}
-                  className={cn(
-                    "h-1 rounded-full transition-all duration-500",
-                    p === phase ? "w-8 bg-cyan-400" : "w-3 bg-white/10",
-                    i < currentPhaseIndex ? "bg-emerald-400/50" : ""
-                  )}
-                />
-              ))}
-            </div>
-
-            {/* Focused single-stage carousel */}
-            <div className="relative overflow-hidden rounded-2xl">
-              <AnimatePresence mode="wait" custom={direction} initial={false}>
-                <motion.div
-                  key={activeStep}
-                  custom={direction}
-                  variants={slideVariants}
-                  initial="enter"
-                  animate="center"
-                  exit="exit"
-                  transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
-                >
-                  {activeStep === 1 && (
-                    <SpecColumn
-                      phase={phase}
-                      invariants={invariants}
-                      onExtract={handleExtract}
-                      onTargetChange={handleTargetChange}
-                    />
-                  )}
-
-                  {activeStep === 2 && (
-                    <div className="flex flex-col gap-3">
-                      <InvariantContracts invariants={invariants} compact />
-                      <AttackArena
-                        phase={phase}
-                        onLaunch={handleLaunchAttack}
-                        targetName={targetName}
-                      />
-                      <AnimatePresence>
-                        {phase === "breached" && (
-                          <motion.div
-                            initial={{ opacity: 0, y: 12 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0 }}
-                          >
-                            <Button
-                              onClick={handleBreachRepair}
-                              size="sm"
-                              className="w-full gap-2 text-[11px] font-semibold bg-violet-500 hover:bg-violet-400 text-white shadow-md shadow-violet-500/20 transition-all"
-                            >
-                              <Wrench className="h-3.5 w-3.5" />
-                              Invoke Autonomous Patch — continue to Step 3
-                            </Button>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  )}
-
-                  {activeStep === 3 && (
-                    <div className="flex flex-col gap-3">
-                      <InvariantContracts invariants={invariants} compact />
-                      <RepairColumn
-                        phase={phase}
-                        onInvokeRepair={handleInvokeRepair}
-                        invariants={invariants}
-                        targetName={targetName}
-                      />
-                    </div>
-                  )}
-                </motion.div>
-              </AnimatePresence>
-            </div>
-
-            {/* Back / Next navigation */}
-            <div className="mt-4 flex items-center justify-between">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleBack}
-                disabled={!canGoBack}
-                className="gap-1.5 text-[11px] font-semibold border-white/10 text-zinc-400 hover:text-white hover:bg-white/5 disabled:opacity-30"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                Back
-              </Button>
-
-              {pinnedStep !== null && pinnedStep !== currentStep && (
-                <button
-                  onClick={releasePin}
-                  className="text-[10px] font-mono text-cyan-400/80 hover:text-cyan-300 underline underline-offset-2 transition-colors"
-                >
-                  follow live phase (step {currentStep})
-                </button>
-              )}
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleNext}
-                disabled={!canGoNext}
-                className="gap-1.5 text-[11px] font-semibold border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200 disabled:opacity-30 disabled:border-white/10 disabled:text-zinc-500 disabled:hover:bg-transparent"
-              >
-                Next
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
-        ) : (
-          /* ============ Command Center (original 3-column grid) ============ */
-          <div className="mx-auto max-w-[1920px]">
-            {/* Dashboard header */}
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h1 className="text-lg font-bold text-white">
-                  Command Center
-                  <span className="text-zinc-500 font-normal ml-2 text-sm">
-                    {targetName}
-                  </span>
-                </h1>
-                <p className="text-[11px] text-zinc-500 mt-0.5">
-                  {phaseDescriptions[phase]}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
-                  <Clock className="h-3 w-3" />
-                  <span className="font-mono">
-                    {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Step breadcrumbs — clickable, jumps into the guided workflow */}
-            <div className="mb-4">
-              <StepStepper
-                current={activeStep}
-                maxReached={maxStep}
-                onStepSelect={handleStepSelect}
               />
-            </div>
-
-            {/* Phase indicator */}
-            <div className="flex items-center gap-1 mb-4">
-              {phases.map((p, i) => (
-                <div
-                  key={p}
-                  className={cn(
-                    "h-1 rounded-full transition-all duration-500",
-                    p === phase ? "w-8 bg-cyan-400" : "w-3 bg-white/10",
-                    i < currentPhaseIndex ? "bg-emerald-400/50" : ""
-                  )}
-                />
-              ))}
-            </div>
-
-            {/* 3-Column Bento Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-[28%_44%_28%] gap-3 xl:gap-4 items-start">
-              {/* Column 1: Spec & Contracts */}
-              <div className="min-h-0">
-                <SpecColumn
-                  phase={phase}
-                  invariants={invariants}
-                  onExtract={handleExtract}
-                  onTargetChange={handleTargetChange}
-                />
-              </div>
-
-              {/* Column 2: Attack Arena */}
-              <div className="min-h-0">
-                <AttackArena
-                  phase={phase}
-                  onLaunch={handleLaunchAttack}
-                  targetName={targetName}
-                />
-              </div>
-
-              {/* Column 3: Repair & Audit */}
-              <div className="min-h-0">
-                <RepairColumn
-                  phase={phase}
-                  onInvokeRepair={handleInvokeRepair}
-                  invariants={invariants}
-                  targetName={targetName}
-                />
-              </div>
-            </div>
+            ))}
           </div>
-        )}
 
-        {/* Verified banner */}
-        <AnimatePresence>
-          {phase === "verified" && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className={cn(
-                "mx-auto mt-4 flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] px-4 py-3",
-                viewMode === "workflow" ? "max-w-4xl" : "max-w-[1920px]"
-              )}
+          {/* Single-stage carousel with slide transitions */}
+          <div className="relative overflow-hidden rounded-2xl">
+            <AnimatePresence mode="wait" custom={direction} initial={false}>
+              <motion.div
+                key={activeStep}
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+              >
+                {activeStep === 1 && (
+                  <SpecColumn
+                    phase={phase}
+                    invariants={invariants}
+                    onExtract={handleExtract}
+                    onTargetChange={handleTargetChange}
+                  />
+                )}
+
+                {activeStep === 2 && (
+                  <div className="flex flex-col gap-3">
+                    <InvariantContracts invariants={invariants} compact />
+                    <AttackArena
+                      phase={phase}
+                      onLaunch={handleLaunchAttack}
+                      targetName={targetName}
+                    />
+                    <AnimatePresence>
+                      {phase === "breached" && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 12 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                        >
+                          <Button
+                            onClick={handleBreachRepair}
+                            size="sm"
+                            className="w-full gap-2 text-[11px] font-semibold bg-violet-500 hover:bg-violet-400 text-white shadow-md shadow-violet-500/20 transition-all"
+                          >
+                            <Wrench className="h-3.5 w-3.5" />
+                            Invoke Autonomous Patch — continue to Step 3
+                          </Button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
+
+                {activeStep === 3 && (
+                  <div className="flex flex-col gap-3">
+                    <InvariantContracts invariants={invariants} compact />
+                    <RepairColumn
+                      phase={phase}
+                      onInvokeRepair={handleInvokeRepair}
+                      invariants={invariants}
+                      targetName={targetName}
+                    />
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          {/* Back / Next navigation */}
+          <div className="mt-4 flex items-center justify-between">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBack}
+              disabled={!canGoBack}
+              className="gap-1.5 text-[11px] font-semibold border-white/10 text-zinc-400 hover:text-white hover:bg-white/5 disabled:opacity-30"
             >
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
-              <p className="text-[11px] font-semibold text-emerald-300">
-                Gate passed — merge unlocked. Receipt signed and archived.
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <ChevronLeft className="h-3.5 w-3.5" />
+              Back
+            </Button>
 
-        {/* Backend engine info strip */}
-        <div className={cn("mx-auto", viewMode === "workflow" ? "max-w-4xl" : "max-w-[1920px]")}>
+            {pinnedStep !== null && pinnedStep !== currentStep && (
+              <button
+                onClick={releasePin}
+                className="text-[10px] font-mono text-cyan-400/80 hover:text-cyan-300 underline underline-offset-2 transition-colors"
+              >
+                follow live phase (step {currentStep})
+              </button>
+            )}
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleNext}
+              disabled={!canGoNext}
+              className="gap-1.5 text-[11px] font-semibold border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200 disabled:opacity-30 disabled:border-white/10 disabled:text-zinc-500 disabled:hover:bg-transparent"
+            >
+              Next
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+
+          {/* Verified banner */}
+          <AnimatePresence>
+            {phase === "verified" && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] px-4 py-3"
+              >
+                <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                <p className="text-[11px] font-semibold text-emerald-300">
+                  Gate passed — merge unlocked. Receipt signed and archived.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Backend engine info strip */}
           <div className="mt-4 glass rounded-xl p-3">
             <div className="flex items-center gap-2 mb-1">
               <div className="h-2 w-2 rounded-full bg-cyan-400" />
