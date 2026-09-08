@@ -74,6 +74,18 @@ function DemoModeRunner({
   return null;
 }
 
+/**
+ * Gated phase transitions: idle → extracting requires the user's explicit
+ * go-ahead (the extract button), contracts → attacking requires the attack
+ * launch, breached → patching requires the repair CTA. In demo mode all
+ * gates open automatically so the demo plays end-to-end.
+ */
+function isGatedPhase(phase: DemoPhase): boolean {
+  return (
+    phase === "idle" || phase === "contracts" || phase === "breached"
+  );
+}
+
 const phaseDescriptions: Record<DemoPhase, string> = {
   idle: "Waiting for you to kick things off",
   extracting: "Translating your requirements into formal invariants via AST parsing...",
