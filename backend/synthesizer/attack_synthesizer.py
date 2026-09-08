@@ -16,20 +16,24 @@ Example expressions accepted (see `normalize_expression`):
 Evaluation is deliberately restricted: the expression is compiled with
 `ast.parse(..., mode="eval")` against a whitelist of context names, safe
 arithmetic/comparison/boolean operators, and a small function allowlist.
-No attribute access, no calls outside the allowlist, no names from the
-ambient environment — a hostile formula cannot execute arbitrary code.
+No attribute access, no calls outside the allowlist — a hostile formula
+cannot execute arbitrary code.
 
 The frontend (`src/components/shipguard/predicates.ts`) implements the same
 tokenizer/shunting-yard/evaluator in TypeScript so the demo UI and this
 engine render identical verdicts for identical expressions.
+
+Note on the race window: a single barrier-synchronized attempt under
+CPython's GIL usually serializes (the demo's "TOCTOU Delay 10ms" is what
+widens the window in the UI narrative). This module mirrors the original
+demo semantics — one barrier start, one join, then verdict — keeping the
+behavior deterministic and easy to follow.
 """
 
 from __future__ import annotations
 
 import ast
-import random
 import threading
-import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -112,18 +116,15 @@ def normalize_expression(raw: str) -> str:
     # Unicode math operators → Python
     for raw_op, py_op in (("≥", ">="), ("≤", "<="), ("≠", "!=")):
         expr = expr.replace(raw_op, py_op)
-    # Prose keywords → Python boolean operators
-    for keyword, py_op in ((" and ", " and "), (" or ", " or "), (" not ", " not ")):
-        expr = expr.replace(keyword, py_op)
     return expr.strip()
 
 
 def evaluate_predicate(expression: str, context: Dict[str, float]) -> bool:
     """Safely compile and evaluate a user invariant expression.
 
-    Returns the Python truthiness of the predicate, or False (with the
-    error recorded on the exception) when the expression cannot be
-    compiled or evaluated.
+    Returns the Python truthiness of the predicate; raises ValueError /
+    SyntaxError when the expression cannot be compiled or references
+    anything outside the whitelist.
     """
     cleaned = normalize_expression(expression)
     if not cleaned:
@@ -182,21 +183,21 @@ def evaluate_predicate(expression: str, context: Dict[str, float]) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Concurrent fuzzing loop
+# Concurrent attack suite — one barrier start, one join, then the verdict
 # ---------------------------------------------------------------------------
 
 
-def _run_single_attempt(
-    initial_balance: float,
-    transfer_amount: float,
-    concurrency: int,
-    jitter_us: int = 0,
-) -> Dict[str, float]:
-    """One concurrent double-spend attempt; returns the captured context.
+def execute_adversarial_attack_suite(
+    invariants: Optional[List[Invariant]] = None,
+    initial_balance: float = 1000.0,
+    transfer_amount: float = 1000.0,
+    concurrency: int = 2,
+) -> AttackResult:
+    """Run concurrent threads against the target service, then check every
+    active invariant predicate against the captured pre/post state."""
+    if concurrency < 2:
+        raise ValueError("concurrency must be >= 2 to exercise the race window")
 
-    `jitter_us` scatters each worker's start inside the window so the
-    interleaving varies across attempts (scheduler fuzzing); with 0 the
-    workers start back-to-back after the barrier."""
     service = CampusPay()
     service.balances = {"sender": initial_balance, "receiver": 0.0}
 
@@ -208,8 +209,6 @@ def _run_single_attempt(
 
     def worker() -> None:
         barrier.wait()
-        if jitter_us:
-            time.sleep(random.uniform(0, jitter_us) / 1_000_000)
         service.transfer("sender", "receiver", transfer_amount)
 
     threads = [threading.Thread(target=worker) for _ in range(concurrency)]
@@ -218,7 +217,7 @@ def _run_single_attempt(
     for t in threads:
         t.join()
 
-    return {
+    eval_context: Dict[str, float] = {
         "pre_sender": pre_sender,
         "pre_receiver": pre_receiver,
         "pre_total": pre_total,
@@ -227,27 +226,6 @@ def _run_single_attempt(
         "post_total": service.total_assets(),
         "amount": transfer_amount,
     }
-
-
-def execute_adversarial_attack_suite(
-    invariants: Optional[List[Invariant]] = None,
-    initial_balance: float = 1000.0,
-    transfer_amount: float = 1000.0,
-    concurrency: int = 2,
-    max_attempts: int = 500,
-) -> AttackResult:
-    """Fuzz the target with concurrent double-spend attempts until an
-    active invariant predicate falsifies or attempts are exhausted.
-
-    CPython's GIL makes a single barrier-synchronized run atomic most of
-    the time, so the loop hammers the check-then-act window with a forced
-    tiny thread-switch interval until the interleaving actually lands
-    inside it — which is exactly what property-based adversarial testing
-    does. The first falsifying attempt's captured state is returned as
-    the counterexample.
-    """
-    if concurrency < 2:
-        raise ValueError("concurrency must be >= 2 to exercise the race window")
 
     # Default fallback contract set when the dashboard exports none.
     if not invariants:
@@ -262,74 +240,38 @@ def execute_adversarial_attack_suite(
             )
         ]
 
-    # Pre-compile/validate every predicate once so a malformed judge
-    # expression is reported before any fuzzing starts.
     for inv in invariants:
         expression = inv.expression or "post_total == pre_total"
         try:
-            ast.parse(normalize_expression(expression), mode="eval")
-        except SyntaxError as err:
+            passed = evaluate_predicate(expression, eval_context)
+        except (SyntaxError, ValueError) as err:
             return AttackResult(
                 vector="toctou",
                 falsified=False,
-                evaluation_error=f"[{inv.id}] invalid predicate: {err.msg}",
+                evaluation_error=f"[{inv.id}] {err}",
+                state_delta=eval_context,
                 exit_code=2,
             )
 
-    import sys
-
-    previous_interval = sys.getswitchinterval()
-    # Force rapid thread preemption so the interleaving lands inside the
-    # check-then-act window far more often, and scatter worker starts with
-    # jitter so the two threads contend inside the critical section.
-    sys.setswitchinterval(1e-6)
-    try:
-        for attempt in range(max_attempts):
-            eval_context = _run_single_attempt(
-                initial_balance,
-                transfer_amount,
-                concurrency,
-                jitter_us=250,
+        if not passed:
+            phantom_delta = eval_context["post_total"] - eval_context["pre_total"]
+            return AttackResult(
+                vector="toctou",
+                falsified=True,
+                falsified_invariant_id=inv.id,
+                falsified_expression=expression,
+                reproduction_command=f"pytest backend/tests/test_invariants.py -k {inv.id}",
+                traceback=(
+                    f"AssertionError: Contract [{inv.id}] Falsified!\n"
+                    f"  Expression: {expression}\n"
+                    f"  Observed State: pre_total={eval_context['pre_total']}, "
+                    f"post_total={eval_context['post_total']}\n"
+                    f"  Discrepancy: Δ = ₹{phantom_delta:,.2f} balance anomaly"
+                ),
+                exit_code=1,
+                state_delta=eval_context,
             )
 
-            for inv in invariants:
-                expression = inv.expression or "post_total == pre_total"
-                try:
-                    passed = evaluate_predicate(expression, eval_context)
-                except (SyntaxError, ValueError) as err:
-                    return AttackResult(
-                        vector="toctou",
-                        falsified=False,
-                        evaluation_error=f"[{inv.id}] {err}",
-                        state_delta=eval_context,
-                        exit_code=2,
-                    )
-
-                if not passed:
-                    phantom_delta = eval_context["post_total"] - eval_context["pre_total"]
-                    return AttackResult(
-                        vector="toctou",
-                        falsified=True,
-                        falsified_invariant_id=inv.id,
-                        falsified_expression=expression,
-                        reproduction_command=f"pytest backend/tests/test_invariants.py -k {inv.id}",
-                        traceback=(
-                            f"AssertionError: Contract [{inv.id}] Falsified!"
-                            f" (attempt {attempt + 1}/{max_attempts})\n"
-                            f"  Expression: {expression}\n"
-                            f"  Observed State: pre_total={eval_context['pre_total']},"
-                            f" post_total={eval_context['post_total']},"
-                            f" post_sender={eval_context['post_sender']}\n"
-                            f"  Discrepancy: Δ = ₹{phantom_delta:,.2f} balance anomaly"
-                        ),
-                        exit_code=1,
-                        state_delta=eval_context,
-                    )
-    finally:
-        sys.setswitchinterval(previous_interval)
-
-    # All attempts exhausted with every predicate holding.
-    eval_context = _run_single_attempt(initial_balance, transfer_amount, concurrency)
     return AttackResult(vector="toctou", falsified=False, state_delta=eval_context)
 
 
@@ -341,7 +283,6 @@ def execute_adversarial_attack_suite(
 def main() -> int:
     import argparse
     import json
-    import sys
 
     parser = argparse.ArgumentParser(description="SHIPGUARD dynamic attack synthesizer")
     parser.add_argument(
