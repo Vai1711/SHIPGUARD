@@ -3,7 +3,6 @@ import { Shield, ArrowRight, Zap, Lock, Bug, Cpu, Sparkles, CheckCircle2, Globe 
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router";
 import { useAuth } from "@/hooks/use-auth";
-import { useEffect } from "react";
 
 const features = [
   {
@@ -51,11 +50,9 @@ export default function Landing() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate("/dashboard");
-    }
-  }, [isAuthenticated, navigate]);
+  // The landing page is always shown, even for signed-in users — it's the
+  // starting info page. Signed-in users can jump straight to the dashboard
+  // via the CTA below.
 
   return (
     <motion.div
@@ -76,10 +73,10 @@ export default function Landing() {
           </div>
           <Button
             size="sm"
-            onClick={() => navigate("/auth")}
+            onClick={() => navigate(isAuthenticated ? "/dashboard" : "/auth")}
             className="gap-1.5 text-[11px] font-semibold bg-cyan-500 hover:bg-cyan-400 text-zinc-950 shadow-lg shadow-cyan-500/20 transition-all hover:shadow-cyan-400/30"
           >
-            Open Your Dashboard
+            {isAuthenticated ? "Open Your Dashboard" : "Sign in"}
             <ArrowRight className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -124,10 +121,10 @@ export default function Landing() {
             <div className="flex items-center justify-center gap-3 mb-12">
               <Button
                 size="lg"
-                onClick={() => navigate("/auth")}
+                onClick={() => navigate(isAuthenticated ? "/dashboard" : "/auth")}
                 className="gap-2 font-semibold bg-cyan-500 hover:bg-cyan-400 text-zinc-950 shadow-lg shadow-cyan-500/25 px-8 transition-all hover:shadow-xl hover:shadow-cyan-400/30"
               >
-                Open Your Dashboard
+                {isAuthenticated ? "Open Your Dashboard" : "Sign in to Get Started"}
                 <ArrowRight className="h-4 w-4" />
               </Button>
               <Button
@@ -229,10 +226,10 @@ export default function Landing() {
             </p>
             <Button
               size="lg"
-              onClick={() => navigate("/auth")}
+              onClick={() => navigate(isAuthenticated ? "/dashboard" : "/auth")}
               className="gap-2 font-semibold bg-cyan-500 hover:bg-cyan-400 text-zinc-950 shadow-lg shadow-cyan-500/25 px-8"
             >
-              Get Started
+              {isAuthenticated ? "Open Your Dashboard" : "Get Started"}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </motion.div>

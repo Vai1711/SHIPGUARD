@@ -320,9 +320,10 @@ export default function Dashboard() {
   const phases: DemoPhase[] = ["idle", "extracting", "contracts", "attacking", "breached", "patching", "verified"];
   const currentPhaseIndex = phases.indexOf(phase);
 
-  const canGoBack = activeStep > 1 && !isDemoMode;
-  const canGoNext =
-    activeStep < Math.min(3, maxStep) && !isDemoMode;
+  // Navigation is available in every mode — including demo playback. Going
+  // back/forward pins the view so the auto-runner doesn't yank it away.
+  const canGoBack = activeStep > 1;
+  const canGoNext = activeStep < Math.min(3, maxStep);
 
   const handleBack = () => {
     if (!canGoBack) return;
@@ -420,7 +421,7 @@ export default function Dashboard() {
             <StepStepper
               current={activeStep}
               maxReached={maxStep}
-              onStepSelect={isDemoMode ? undefined : handleStepSelect}
+              onStepSelect={handleStepSelect}
             />
 
             {/* Step headline + phase descriptor */}
@@ -586,7 +587,7 @@ export default function Dashboard() {
               <StepStepper
                 current={activeStep}
                 maxReached={maxStep}
-                onStepSelect={isDemoMode ? undefined : handleStepSelect}
+                onStepSelect={handleStepSelect}
               />
             </div>
 
