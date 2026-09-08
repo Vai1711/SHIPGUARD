@@ -40,7 +40,9 @@ flowchart TD
     style Agent fill:#1e1b4b,stroke:#818cf8,stroke-width:1px,color:#e0e7ff
     style Gate fill:#09090b,stroke:#22d3ee,stroke-width:1px,color:#f8fafc
     style G fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#ecfdf5
+```
 
+---
 
 ## 📁 Repository Structure
 
@@ -97,7 +99,7 @@ shipguard-gate/
 
 ```bash
 # Clone the repository
-git clone [https://github.com/Vai1711/shipguard-gate.git](https://github.com/Vai1711/shipguard-gate.git)
+git clone https://github.com/Vai1711/shipguard-gate.git
 cd shipguard-gate
 
 # Install frontend dependencies
