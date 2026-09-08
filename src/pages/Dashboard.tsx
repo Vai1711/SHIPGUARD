@@ -8,8 +8,10 @@ import { TopNav } from "@/components/shipguard/TopNav";
 import { SpecColumn } from "@/components/shipguard/SpecColumn";
 import { AttackArena } from "@/components/shipguard/AttackArena";
 import { RepairColumn } from "@/components/shipguard/RepairColumn";
+import { InvariantContracts } from "@/components/shipguard/InvariantContracts";
+import { StepStepper, type WorkflowStep } from "@/components/shipguard/StepStepper";
 import { useAuth } from "@/hooks/use-auth";
-import { LogOut, Shield, Clock } from "lucide-react";
+import { LogOut, Shield, Clock, ChevronLeft, ChevronRight, ShieldCheck, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 function DemoModeRunner({
@@ -75,6 +77,67 @@ const phaseDescriptions: Record<DemoPhase, string> = {
   verified: "All 100 adversarial permutations passed. Ship it.",
 };
 
+const stepHeadline: Record<WorkflowStep, string> = {
+  1: "Specify the target — the gate derives formal contracts",
+  2: "Attack the contracts with adversarial property tests",
+  3: "Auto-patch the falsified invariant and audit the fix",
+};
+
+/**
+ * Which workflow step does this phase belong to? Note that "contracts"
+ * maps to Step 2: the moment extraction completes, the view slides into
+ * the Attack Arena (flow automation).
+ */
+function stepForPhase(phase: DemoPhase): WorkflowStep {
+  switch (phase) {
+    case "idle":
+    case "extracting":
+      return 1;
+    case "contracts":
+    case "attacking":
+    case "breached":
+      return 2;
+    default:
+      return 3;
+  }
+}
+
+/** Highest step the user has unlocked (drives stepper completion/reachability). */
+function maxStepForPhase(phase: DemoPhase): WorkflowStep {
+  switch (phase) {
+    case "idle":
+    case "extracting":
+      return 1;
+    case "contracts":
+      // Contracts are armed → Step 2 is reachable but not yet visited.
+      return 2;
+    case "attacking":
+    case "breached":
+      // Breach proof unlocks the repair stage.
+      return 3;
+    case "patching":
+    case "verified":
+      return 3;
+    default:
+      return 1;
+  }
+}
+
+const slideVariants = {
+  enter: (direction: 1 | -1) => ({
+    x: direction > 0 ? "60%" : "-60%",
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+  },
+  exit: (direction: 1 | -1) => ({
+    x: direction > 0 ? "-60%" : "60%",
+    opacity: 0,
+  }),
+};
+
 export default function Dashboard() {
   const { user, signOut } = useAuth();
   const [phase, setPhase] = useState<DemoPhase>("idle");
@@ -82,12 +145,53 @@ export default function Dashboard() {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [showBreachFlash, setShowBreachFlash] = useState(false);
   const [targetFile, setTargetFile] = useState<TargetFile | null>(null);
+  // null = follow the phase automatically; set only by explicit Back/Next clicks.
+  const [pinnedStep, setPinnedStep] = useState<WorkflowStep | null>(null);
+  const [[step, direction], setStepState] = useState<[WorkflowStep, 1 | -1]>([1, 1]);
   const targetName = targetFile?.name ?? DEFAULT_TARGET_NAME;
+
+  const currentStep = stepForPhase(phase);
+  const maxStep = maxStepForPhase(phase);
+  const activeStep = pinnedStep ?? currentStep;
+
+  // Keep a pinned step from outliving its unlock window (e.g. after Reset).
+  useEffect(() => {
+    if (pinnedStep !== null && pinnedStep > maxStep) {
+      setPinnedStep(null);
+    }
+  }, [pinnedStep, maxStep]);
+
+  // Sync the carousel to the phase unless the user pinned a manual view.
+  useEffect(() => {
+    if (pinnedStep !== null) return;
+    setStepState(([prevStep]) => {
+      if (prevStep === currentStep) return [prevStep, 1];
+      return [currentStep, currentStep > prevStep ? 1 : -1];
+    });
+  }, [currentStep, pinnedStep]);
+
+  const goToStep = useCallback(
+    (target: WorkflowStep) => {
+      if (target === step) return;
+      setPinnedStep(target);
+      setStepState(([prevStep]) => [target, target > prevStep ? 1 : -1]);
+    },
+    [step]
+  );
+
+  const releasePin = useCallback(() => {
+    setPinnedStep(null);
+    setStepState(([prevStep]) => {
+      if (prevStep === currentStep) return [prevStep, 1];
+      return [currentStep, currentStep > prevStep ? 1 : -1];
+    });
+  }, [currentStep]);
 
   const resetDemo = useCallback(() => {
     setPhase("idle");
     setInvariants(INVARIANTS.map((i) => ({ ...i, status: "standby" })));
     setShowBreachFlash(false);
+    setPinnedStep(null);
   }, []);
 
   // Custom pasted sources get their contracts derived live from the code;
@@ -181,8 +285,34 @@ export default function Dashboard() {
     }
   }, [phase, advancePhase]);
 
+  // Breach CTA: slide into Step 3 and kick off the autonomous patch.
+  const handleBreachRepair = useCallback(() => {
+    if (phase !== "breached") return;
+    if (!isDemoMode) goToStep(3);
+    advancePhase();
+  }, [phase, isDemoMode, goToStep, advancePhase]);
+
   const phases: DemoPhase[] = ["idle", "extracting", "contracts", "attacking", "breached", "patching", "verified"];
   const currentPhaseIndex = phases.indexOf(phase);
+
+  const canGoBack = activeStep > 1 && !isDemoMode;
+  const canGoNext =
+    activeStep < Math.min(3, maxStep) && !isDemoMode;
+
+  const handleBack = () => {
+    if (!canGoBack) return;
+    if (pinnedStep !== null) {
+      goToStep((activeStep - 1) as WorkflowStep);
+    } else {
+      goToStep((currentStep - 1) as WorkflowStep);
+    }
+  };
+
+  const handleNext = () => {
+    if (!canGoNext) return;
+    const base = pinnedStep ?? currentStep;
+    goToStep((base + 1) as WorkflowStep);
+  };
 
   return (
     <div className="min-h-screen flex flex-col relative">
@@ -228,32 +358,35 @@ export default function Dashboard() {
 
       {/* Main content */}
       <main className="flex-1 px-3 py-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-[1920px]">
-          {/* Dashboard header */}
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-lg font-bold text-white">
-                Command Center
-                <span className="text-zinc-500 font-normal ml-2 text-sm">
-                  {targetName}
-                </span>
-              </h1>
-              <p className="text-[11px] text-zinc-500 mt-0.5">
-                {phaseDescriptions[phase]}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
-                <Clock className="h-3 w-3" />
-                <span className="font-mono">
-                  {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
-                </span>
-              </div>
-            </div>
+        <div className="mx-auto max-w-4xl">
+          {/* Workflow stepper */}
+          <StepStepper
+            current={activeStep}
+            maxReached={maxStep}
+            onStepSelect={isDemoMode ? undefined : goToStep}
+          />
+
+          {/* Step headline + phase descriptor */}
+          <div className="mt-4 mb-3 text-center px-2">
+            <h1 className="text-base sm:text-lg font-bold text-white">
+              {stepHeadline[activeStep]}
+            </h1>
+            <p
+              className={cn(
+                "text-[11px] mt-1 font-mono",
+                phase === "breached"
+                  ? "text-red-400"
+                  : phase === "verified"
+                    ? "text-emerald-400"
+                    : "text-zinc-500"
+              )}
+            >
+              {phaseDescriptions[phase]}
+            </p>
           </div>
 
-          {/* Phase indicator */}
-          <div className="flex items-center gap-1 mb-4">
+          {/* Phase indicator dots */}
+          <div className="flex items-center justify-center gap-1 mb-4">
             {phases.map((p, i) => (
               <div
                 key={p}
@@ -266,37 +399,121 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* 3-Column Bento Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-[28%_44%_28%] gap-3 xl:gap-4 items-start">
-            {/* Column 1: Spec & Contracts */}
-            <div className="min-h-0">
-              <SpecColumn
-                phase={phase}
-                invariants={invariants}
-                onExtract={handleExtract}
-                onTargetChange={handleTargetChange}
-              />
-            </div>
+          {/* Focused single-stage carousel */}
+          <div className="relative overflow-hidden rounded-2xl">
+            <AnimatePresence mode="wait" custom={direction} initial={false}>
+              <motion.div
+                key={activeStep}
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+              >
+                {activeStep === 1 && (
+                  <SpecColumn
+                    phase={phase}
+                    invariants={invariants}
+                    onExtract={handleExtract}
+                    onTargetChange={handleTargetChange}
+                  />
+                )}
 
-            {/* Column 2: Attack Arena */}
-            <div className="min-h-0">
-              <AttackArena
-                phase={phase}
-                onLaunch={handleLaunchAttack}
-                targetName={targetName}
-              />
-            </div>
+                {activeStep === 2 && (
+                  <div className="flex flex-col gap-3">
+                    <InvariantContracts invariants={invariants} compact />
+                    <AttackArena
+                      phase={phase}
+                      onLaunch={handleLaunchAttack}
+                      targetName={targetName}
+                    />
+                    <AnimatePresence>
+                      {phase === "breached" && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 12 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                        >
+                          <Button
+                            onClick={handleBreachRepair}
+                            size="sm"
+                            className="w-full gap-2 text-[11px] font-semibold bg-violet-500 hover:bg-violet-400 text-white shadow-md shadow-violet-500/20 transition-all"
+                          >
+                            <Wrench className="h-3.5 w-3.5" />
+                            Invoke Autonomous Patch — continue to Step 3
+                          </Button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
 
-            {/* Column 3: Repair & Audit */}
-            <div className="min-h-0">
-              <RepairColumn
-                phase={phase}
-                onInvokeRepair={handleInvokeRepair}
-                invariants={invariants}
-                targetName={targetName}
-              />
-            </div>
+                {activeStep === 3 && (
+                  <div className="flex flex-col gap-3">
+                    <InvariantContracts invariants={invariants} compact />
+                    <RepairColumn
+                      phase={phase}
+                      onInvokeRepair={handleInvokeRepair}
+                      invariants={invariants}
+                      targetName={targetName}
+                    />
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
           </div>
+
+          {/* Back / Next navigation */}
+          <div className="mt-4 flex items-center justify-between">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBack}
+              disabled={!canGoBack}
+              className="gap-1.5 text-[11px] font-semibold border-white/10 text-zinc-400 hover:text-white hover:bg-white/5 disabled:opacity-30"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              Back
+            </Button>
+
+            {pinnedStep !== null && pinnedStep !== currentStep && (
+              <button
+                onClick={releasePin}
+                className="text-[10px] font-mono text-cyan-400/80 hover:text-cyan-300 underline underline-offset-2 transition-colors"
+              >
+                follow live phase (step {currentStep})
+              </button>
+            )}
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleNext}
+              disabled={!canGoNext}
+              className="gap-1.5 text-[11px] font-semibold border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200 disabled:opacity-30 disabled:border-white/10 disabled:text-zinc-500 disabled:hover:bg-transparent"
+            >
+              Next
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+
+          {/* Verified banner */}
+          <AnimatePresence>
+            {phase === "verified" && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] px-4 py-3"
+              >
+                <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                <p className="text-[11px] font-semibold text-emerald-300">
+                  Gate passed — merge unlocked. Receipt signed and archived.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Backend engine info strip */}
           <div className="mt-4 glass rounded-xl p-3">

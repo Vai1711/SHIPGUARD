@@ -5,7 +5,7 @@ import type { DemoPhase, Invariant, TargetFile } from "./types";
 import { DEFAULT_TARGET_NAME, deriveInvariants, analyzeSource } from "./analysis";
 import { SAMPLE_MODULE } from "./samples";
 import type { SourceAnalysis } from "./analysis";
-import { StatusBadge } from "./StatusBadge";
+import { InvariantContracts } from "./InvariantContracts";
 import { Button } from "@/components/ui/button";
 import {
   FileText,
@@ -538,40 +538,8 @@ R3: Atomicity & Idempotency
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            className="flex flex-col gap-2.5"
           >
-            <h3 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 px-1">
-              Formal Invariant Contracts
-            </h3>
-            {invariants.map((inv, i) => (
-              <motion.div
-                key={inv.id}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.15, duration: 0.3 }}
-                className={cn(
-                  "glass rounded-xl p-3.5 transition-all duration-500 border-l-[3px]",
-                  inv.status === "falsified" && "border-l-red-500 animate-shake bg-red-500/[0.06]",
-                  inv.status === "verified" && "border-l-emerald-500 bg-emerald-500/[0.04]",
-                  inv.status === "evaluating" && "border-l-amber-500 bg-amber-500/[0.04]",
-                  inv.status === "standby" && "border-l-zinc-600"
-                )}
-              >
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-[10px] font-bold text-zinc-400 bg-white/[0.06] rounded px-1.5 py-0.5">
-                      {inv.id}
-                    </span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-                      {inv.type}
-                    </span>
-                  </div>
-                  <StatusBadge status={inv.status} />
-                </div>
-                <p className="text-xs font-semibold text-zinc-200 mb-1">{inv.label}</p>
-                <p className="font-mono text-[10px] text-zinc-500 leading-4">{inv.description}</p>
-              </motion.div>
-            ))}
+            <InvariantContracts invariants={invariants} />
           </motion.div>
         )}
       </AnimatePresence>
