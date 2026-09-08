@@ -3,7 +3,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { DemoPhase, Invariant, TargetFile } from "@/components/shipguard/types";
 import { INVARIANTS, DEFAULT_TARGET_NAME } from "@/components/shipguard/types";
+import type { InvariantWithExpression } from "@/components/shipguard/predicates";
 import { deriveInvariants, analyzeSource } from "@/components/shipguard/analysis";
+import {
+  findFalsifiedInvariant,
+  type AttackContext,
+} from "@/components/shipguard/predicates";
 import { TopNav } from "@/components/shipguard/TopNav";
 import { SpecColumn } from "@/components/shipguard/SpecColumn";
 import { AttackArena } from "@/components/shipguard/AttackArena";
@@ -145,6 +150,23 @@ function maxStepForPhase(phase: DemoPhase): WorkflowStep {
   }
 }
 
+/**
+ * The deterministic demo attack: two threads double-spend through the
+ * check-then-act window. The captured context is fed through the user's
+ * edited invariant expressions to decide the verdict.
+ */
+function buildAttackContext(): AttackContext {
+  return {
+    pre_sender: 1000,
+    pre_receiver: 0,
+    pre_total: 1000,
+    post_sender: -1000,
+    post_receiver: 2000,
+    post_total: 2000,
+    amount: 1000,
+  };
+}
+
 const slideVariants = {
   enter: (direction: 1 | -1) => ({
     x: direction > 0 ? "60%" : "-60%",
@@ -163,7 +185,15 @@ const slideVariants = {
 export default function Dashboard() {
   const { user, signOut } = useAuth();
   const [phase, setPhase] = useState<DemoPhase>("idle");
-  const [invariants, setInvariants] = useState<Invariant[]>(INVARIANTS);
+  const [invariants, setInvariants] = useState<InvariantWithExpression[]>(
+    INVARIANTS.map((i) => ({
+      ...i,
+      expression:
+        i.id === "INV-001"
+          ? "post_sender >= 0 and post_receiver >= 0"
+          : "post_total == pre_total",
+    }))
+  );
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [showBreachFlash, setShowBreachFlash] = useState(false);
   const [targetFile, setTargetFile] = useState<TargetFile | null>(null);
@@ -305,27 +335,31 @@ export default function Dashboard() {
     }
   }, [phase, isDemoMode, acceptGate, advancePhase]);
 
-  // Update invariant statuses based on phase
+  // Update invariant statuses based on phase. On breach, the falsified
+  // contract is decided by genuinely evaluating each user-edited predicate
+  // expression against the captured attack context.
   useEffect(() => {
-    setInvariants((prev) =>
-      prev.map((inv) => {
-        switch (phase) {
-          case "attacking":
-            return { ...inv, status: "evaluating" as const };
-          case "breached":
-            return {
-              ...inv,
-              status:
-                inv.id === "INV-002" ? "falsified" : "evaluating",
-            };
-          case "patching":
-          case "verified":
-            return { ...inv, status: "verified" as const };
-          default:
-            return inv;
+    setInvariants((prev) => {
+      switch (phase) {
+        case "attacking":
+          return prev.map((inv) => ({ ...inv, status: "evaluating" as const }));
+        case "breached": {
+          const verdict = findFalsifiedInvariant(prev, buildAttackContext());
+          return prev.map((inv) => ({
+            ...inv,
+            status:
+              verdict && inv.id === verdict.invariant.id
+                ? ("falsified" as const)
+                : ("evaluating" as const),
+          }));
         }
-      })
-    );
+        case "patching":
+        case "verified":
+          return prev.map((inv) => ({ ...inv, status: "verified" as const }));
+        default:
+          return prev;
+      }
+    });
 
     if (phase === "breached") {
       setShowBreachFlash(true);
@@ -352,6 +386,12 @@ export default function Dashboard() {
       advancePhase();
     }
   }, [phase, advancePhase]);
+
+  // The attack's verdict context + falsified contract, derived from the live
+  // (user-edited) invariants, are threaded into the arena for the terminal
+  // feed and state-differential display.
+  const attackContext = buildAttackContext();
+  const breachVerdict = findFalsifiedInvariant(invariants, attackContext);
 
   const handleInvokeRepair = useCallback(() => {
     if (phase === "breached") {
@@ -522,6 +562,9 @@ export default function Dashboard() {
                       phase={phase}
                       onLaunch={handleLaunchAttack}
                       targetName={targetName}
+                      invariants={invariants}
+                      breach={breachVerdict}
+                      context={attackContext}
                     />
                     <AnimatePresence>
                       {phase === "breached" && (

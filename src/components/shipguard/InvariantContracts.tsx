@@ -21,6 +21,7 @@ function ContractCard({
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(inv.label);
   const [description, setDescription] = useState(inv.description);
+  const [expression, setExpression] = useState(inv.expression ?? "");
   const labelInputRef = useRef<HTMLInputElement>(null);
 
   // Re-sync the draft fields whenever the authoritative values change
@@ -29,8 +30,9 @@ function ContractCard({
     if (!editing) {
       setLabel(inv.label);
       setDescription(inv.description);
+      setExpression(inv.expression ?? "");
     }
-  }, [editing, inv.label, inv.description]);
+  }, [editing, inv.label, inv.description, inv.expression]);
 
   // Focus the label input as soon as editing starts.
   useEffect(() => {
@@ -40,12 +42,14 @@ function ContractCard({
   const startEdit = () => {
     setLabel(inv.label);
     setDescription(inv.description);
+    setExpression(inv.expression ?? "");
     setEditing(true);
   };
 
   const cancelEdit = () => {
     setLabel(inv.label);
     setDescription(inv.description);
+    setExpression(inv.expression ?? "");
     setEditing(false);
   };
 
@@ -57,6 +61,7 @@ function ContractCard({
       ...inv,
       label: nextLabel,
       description: nextDescription,
+      expression: expression.trim() || undefined,
     });
     setEditing(false);
   };
@@ -133,6 +138,22 @@ function ContractCard({
             placeholder="Formal description (e.g. ∀ call to transfer(): assert balance >= 0)"
             className="w-full resize-none rounded-md border border-white/[0.12] bg-white/[0.04] px-2 py-1.5 font-mono text-[10px] leading-4 text-zinc-300 outline-none placeholder:text-zinc-600 focus:border-cyan-400/50"
           />
+          <div className="rounded-md border border-violet-500/25 bg-violet-500/[0.05] px-2 py-1.5">
+            <p className="text-[8px] font-bold uppercase tracking-wider text-violet-400/80 mb-0.5">
+              Python predicate · context: pre/post_sender, pre/post_receiver, pre/post_total, amount
+            </p>
+            <input
+              value={expression}
+              onChange={(e) => setExpression(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveEdit();
+                if (e.key === "Escape") cancelEdit();
+              }}
+              placeholder="post_total == pre_total"
+              spellCheck={false}
+              className="w-full bg-transparent font-mono text-[10px] leading-4 text-violet-200 outline-none placeholder:text-zinc-600"
+            />
+          </div>
           <div className="flex items-center gap-1.5">
             <button
               onClick={saveEdit}
@@ -160,6 +181,11 @@ function ContractCard({
           <p className="font-mono text-[10px] text-zinc-500 leading-4">
             {inv.description}
           </p>
+          {inv.expression && (
+            <p className="mt-1.5 inline-flex rounded-md border border-violet-500/25 bg-violet-500/[0.06] px-2 py-0.5 font-mono text-[9px] font-semibold text-violet-300">
+              assert {inv.expression}
+            </p>
+          )}
         </>
       )}
     </motion.div>
@@ -233,13 +259,15 @@ function ContractChip({
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(inv.label);
   const [description, setDescription] = useState(inv.description);
+  const [expression, setExpression] = useState(inv.expression ?? "");
 
   useEffect(() => {
     if (!editing) {
       setLabel(inv.label);
       setDescription(inv.description);
+      setExpression(inv.expression ?? "");
     }
-  }, [editing, inv.label, inv.description]);
+  }, [editing, inv.label, inv.description, inv.expression]);
 
   const locked = inv.status === "falsified" || inv.status === "verified";
 
@@ -247,13 +275,19 @@ function ContractChip({
     const nextLabel = label.trim();
     const nextDescription = description.trim();
     if (!nextLabel || !nextDescription) return;
-    onSave?.({ ...inv, label: nextLabel, description: nextDescription });
+    onSave?.({
+      ...inv,
+      label: nextLabel,
+      description: nextDescription,
+      expression: expression.trim() || undefined,
+    });
     setEditing(false);
   };
 
   const cancelEdit = () => {
     setLabel(inv.label);
     setDescription(inv.description);
+    setExpression(inv.expression ?? "");
     setEditing(false);
   };
 
@@ -286,6 +320,22 @@ function ContractChip({
           placeholder="Invariant label"
           className="w-full mb-1.5 rounded-md border border-cyan-500/30 bg-cyan-500/[0.06] px-2 py-1.5 text-xs font-semibold text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-cyan-400/60"
         />
+        <div className="rounded-md border border-violet-500/25 bg-violet-500/[0.05] px-2 py-1.5 mb-1.5">
+          <p className="text-[8px] font-bold uppercase tracking-wider text-violet-400/80 mb-0.5">
+            Python predicate
+          </p>
+          <input
+            value={expression}
+            onChange={(e) => setExpression(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveEdit();
+              if (e.key === "Escape") cancelEdit();
+            }}
+            placeholder="post_total == pre_total"
+            spellCheck={false}
+            className="w-full bg-transparent font-mono text-[10px] leading-4 text-violet-200 outline-none placeholder:text-zinc-600"
+          />
+        </div>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}

@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import type { DemoPhase, AttackVector } from "./types";
+import type { DemoPhase, AttackVector, Invariant } from "./types";
 import { DEFAULT_TARGET_NAME } from "./types";
+import type { AttackContext, PredicateResult } from "./predicates";
+import { normalizeExpression } from "./predicates";
 import { TerminalView } from "./TerminalView";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,22 +37,43 @@ const timelineStepsB = [
   "Credit ₹1,000",
 ];
 
-function buildTerminalOutput(targetName: string) {
+interface BreachVerdict {
+  invariant: Invariant;
+  result: PredicateResult;
+}
+
+/**
+ * Terminal feed for the reproduce artifact. The failing predicate shown is
+ * the user's actual edited expression (normalized to canonical Python-ish
+ * form), evaluated for real by the shared predicate engine.
+ */
+function buildTerminalOutput(
+  targetName: string,
+  context: AttackContext,
+  breach?: BreachVerdict | null
+) {
+  const invId = breach?.invariant.id ?? "INV-002";
+  const formula = normalizeExpression(
+    breach?.invariant.expression ?? "post_total == pre_total"
+  );
+  const phantom = context.post_total - context.pre_total;
+  const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+
   return [
-    "$ python reproduce_failure_toctou.py",
-    `# Target ingested: ${targetName} — invariants extracted from source`,
-    "# Running concurrency attack with 2 threads...",
-  "# Thread A: check_balance() → 1000 >= 1000 → OK",
-  "# Thread B: check_balance() → 1000 >= 1000 → OK",
-  "# Thread A: deduct(1000) → balance = 0",
-  "# Thread B: deduct(1000) → balance = -1000 → INSUFFICIENT (but passed check!)",
-  "# Thread A: credit(1000) → receiver = 2000",
-  "# Thread B: credit(1000) → receiver = 2000",
-  "",
-  "AssertionError: Invariant INV-002 Falsified!",
-  "  Asset sum mismatch: expected 1000, got 2000",
-    "  Phantom currency generated: ₹1,000",
-    "  Exit code: 1",
+    `$ shipguard fuzz --target ${targetName} --concurrency 2 --barrier-sync`,
+    `[INFO] Ingesting contract specifications: [INV-001, INV-002, INV-003]`,
+    `[INFO] Active property: assert ${formula}`,
+    `[RUN] Spawning Worker-Thread-01 and Worker-Thread-02 (TOCTOU Window: 10ms)`,
+    `[INTERLEAVE] Thread 1 reads balance=${fmt(context.pre_sender)} (Check OK)`,
+    `[INTERLEAVE] Thread 2 reads balance=${fmt(context.pre_sender)} (Check OK)`,
+    `[MUTATE] Thread 1 writes balance=0.0, receiver=${fmt(context.amount)}`,
+    `[MUTATE] Thread 2 writes balance=${fmt(-context.amount)}, receiver=${fmt(2 * context.amount)}`,
+    `-`.repeat(70),
+    `FAIL: test_invariant_contract (${targetName})`,
+    `AssertionError: Contract [${invId}] Falsified!`,
+    `  Failed Predicate: ${formula}`,
+    `  State: pre_sum=${fmt(context.pre_total)} | post_sum=${fmt(context.post_total)} (Phantom: +${fmt(phantom)})`,
+    `[RESULT] Exit Code 1 — Attack suite produced valid counterexample.`,
   ];
 }
 
@@ -175,7 +198,13 @@ function ConcurrencyTimeline({ active }: { active: boolean }) {
   );
 }
 
-function StateDifferential({ breached }: { breached: boolean }) {
+function StateDifferential({
+  breached,
+  breach,
+}: {
+  breached: boolean;
+  breach?: BreachVerdict | null;
+}) {
   return (
     <div className="space-y-2">
       <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
@@ -255,7 +284,13 @@ function StateDifferential({ breached }: { breached: boolean }) {
               <p className="text-[10px] font-bold text-red-400 uppercase">
                 +₹1,000 Phantom Currency Generated
               </p>
-              <p className="text-[9px] text-red-400/60 font-mono">INV-002 breach — asset conservation violated</p>
+              <p className="text-[9px] text-red-400/60 font-mono">
+                {breach
+                  ? `${breach.invariant.id} breach — predicate falsified: ${normalizeExpression(
+                      breach.invariant.expression ?? "post_total == pre_total"
+                    )}`
+                  : "INV-002 breach — asset conservation violated"}
+              </p>
             </div>
           </motion.div>
         )}
@@ -268,10 +303,16 @@ export function AttackArena({
   phase,
   onLaunch,
   targetName = DEFAULT_TARGET_NAME,
+  invariants = [],
+  breach = null,
+  context,
 }: {
   phase: DemoPhase;
   onLaunch: () => void;
   targetName?: string;
+  invariants?: Invariant[];
+  breach?: BreachVerdict | null;
+  context?: AttackContext;
 }) {
   const [selectedVector, setSelectedVector] = useState<AttackVector>("toctou");
   const isAttacking = phase === "attacking";
@@ -279,7 +320,22 @@ export function AttackArena({
   const showTimeline = isAttacking || isBreached;
   const showTerminal = isBreached;
   const canLaunch = phase === "contracts";
-  const terminalOutput = buildTerminalOutput(targetName);
+  const ctx: AttackContext =
+    context ?? {
+      pre_sender: 1000,
+      pre_receiver: 0,
+      pre_total: 1000,
+      post_sender: -1000,
+      post_receiver: 2000,
+      post_total: 2000,
+      amount: 1000,
+    };
+  const terminalOutput = buildTerminalOutput(targetName, ctx, breach);
+  const activeProperty = breach
+    ? normalizeExpression(breach.invariant.expression ?? "post_total == pre_total")
+    : invariants[0]?.expression
+      ? normalizeExpression(invariants[0].expression!)
+      : null;
 
   return (
     <div className="flex flex-col gap-3 h-full">
@@ -314,6 +370,18 @@ export function AttackArena({
             );
           })}
         </div>
+        {/* Active property chip — the exact user-edited predicate under test */}
+        {activeProperty && (
+          <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
+              Active property:
+            </span>
+            <span className="inline-flex items-center rounded-md border border-cyan-500/25 bg-cyan-500/[0.07] px-2 py-0.5 font-mono text-[10px] font-semibold text-cyan-300">
+              assert {activeProperty}
+            </span>
+          </div>
+        )}
+
         <Button
           onClick={onLaunch}
           disabled={!canLaunch}
@@ -347,7 +415,7 @@ export function AttackArena({
             transition={{ delay: 0.2 }}
             className="glass rounded-xl p-4"
           >
-            <StateDifferential breached={isBreached} />
+            <StateDifferential breached={isBreached} breach={breach} />
           </motion.div>
         )}
       </AnimatePresence>
